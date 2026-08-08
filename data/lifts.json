@@ -1,0 +1,5 @@
+{
+  "bench": { "from": 130, "to": 150 },
+  "squat": { "from": 170, "to": 215 },
+  "clean": { "from": 100, "to": 130 }
+}
