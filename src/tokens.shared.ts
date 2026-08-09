@@ -74,8 +74,11 @@ export const COLOR_WHITE = "#FFFFFF";
  * decision itself — that's a design-system change, not a token edit.
  * Hex is a picked value, not a measured one: none of the references were
  * sampled precisely enough to give an exact swatch, and the two dashboard
- * refs that did show amber are the ones explicitly excluded above. */
-export const COLOR_AMBER_GAP = "#F59E0B";
+ * refs that did show amber are the ones explicitly excluded above.
+ * Updated from the initial #F59E0B placeholder to a brighter, deeper
+ * orange per explicit design direction — the colour changed, the single
+ * meaning above did not. */
+export const COLOR_AMBER_GAP = "#FF7A18";
 
 /** Helper: white at a given opacity. Colour never varies in this system —
  * only opacity does. */
@@ -176,6 +179,27 @@ export const LETTER_SPACING_HERO_EM = 0;
  * reference tables do. Standard practice for the tabular-data look the
  * refs are going for. */
 export const FONT_FEATURE_TABULAR_NUMS = '"tnum" 1';
+
+// ---------------------------------------------------------------------------
+// Glow
+// ---------------------------------------------------------------------------
+// An aesthetic layer over the amber fill, added on top of the locked timing
+// and structure. The design brief was qualitative ("restrained") — this
+// number is picked to satisfy that word, not measured or derived from
+// anything, same as the rest of the INFERRED/DECIDED tokens in this file.
+//
+// A scanline texture (fine horizontal lines over both bar fills) was tried
+// here and removed — it read as more prominent than "very slight" once
+// actually rendered and looked at, not just restrained. Both segments are
+// flat, solid fills: no texture layer in this system currently.
+
+/** DECIDED — Gaussian blur radius for the amber segment's outer glow, so it
+ * reads as emitting light rather than a flat, painted fill. Applied only to
+ * the amber gap-to-target segment, never the white current-value segment —
+ * glow is part of amber's single meaning (the gap), not a general bar
+ * effect. Kept small relative to bar width so the bloom stays a soft edge,
+ * not a haze that swallows the bar. */
+export const GLOW_BLUR_STD_DEVIATION_PX = 6;
 
 // ---------------------------------------------------------------------------
 // Corners

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 import { Easing, interpolate, useCurrentFrame } from "remotion";
 import { loadFont } from "@remotion/google-fonts/SpaceGrotesk";
 import type * as TokensB from "../tokens.b";
@@ -114,12 +114,34 @@ export const BarChart: React.FC<Props> = ({
     fontFeatureSettings: tokens.FONT_FEATURE_TABULAR_NUMS,
   };
 
+  // Unique per mounted instance so the <filter> id never collides if more
+  // than one BarChart is in the DOM at once (e.g. multiple compositions
+  // open in Studio at the same time).
+  const uid = useId().replace(/:/g, "");
+  const glowFilterId = `amber-glow-${uid}`;
+
+  // Extra clearance the target-value label needs above the bar top so the
+  // amber glow's blur falloff (~3 std-deviations before it's visually
+  // gone) doesn't reach it — a Gaussian blur is what's bleeding onto it,
+  // so the fix is sized off that same filter parameter rather than a
+  // guessed gap. Moves the label clear; the glow filter itself is
+  // untouched.
+  const targetLabelClearance =
+    tokens.SPACE_SM_PX + tokens.GLOW_BLUR_STD_DEVIATION_PX * 3;
+
   return (
     <div
       style={{
         width,
         height,
-        background: tokens.COLOR_BLACK,
+        // No background fill — intentionally transparent. Per the system's
+        // framing decision, this renders as an isolated specimen graphic
+        // composited over footage, not as its own filled frame. COLOR_BLACK
+        // is still used elsewhere (the current-value labels, sitting on
+        // the white fill) — it's just never painted across the whole
+        // canvas. Every preview PNG up to now showed solid black because
+        // this div painted it directly; removing that line is the actual
+        // change that makes the export transparent, not a rendering flag.
         position: "relative",
         fontFamily: tokens.FONT_FAMILY_PRIMARY,
       }}
@@ -145,6 +167,28 @@ export const BarChart: React.FC<Props> = ({
         height={height}
         style={{ position: "absolute", left: 0, top: 0 }}
       >
+        <defs>
+          {/* Soft outer bloom for the amber segment only — blurs a copy of
+              the shape and merges the crisp original on top, so the glow
+              reads as light spilling outward rather than a blurred bar. */}
+          <filter
+            id={glowFilterId}
+            x="-60%"
+            y="-60%"
+            width="220%"
+            height="220%"
+          >
+            <feGaussianBlur
+              stdDeviation={tokens.GLOW_BLUR_STD_DEVIATION_PX}
+              result="blur"
+            />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
         {/* Gridlines + y-axis ticks/numerals — hairline weight */}
         {yTicks.map((v) => {
           const y = scaleY(v);
@@ -233,6 +277,21 @@ export const BarChart: React.FC<Props> = ({
           );
           const amberHeight = fromY - amberTop;
 
+          // Target-value label fades in the moment this bar's own beat 2
+          // starts growing — matched to the same per-bar stagger since it
+          // keys off this bar's own beat2Start directly. Quick, opacity
+          // only: animates straight to OPACITY_LABEL (its normal resting
+          // opacity) rather than to 1, so it doesn't end up brighter than
+          // every other label once settled. DURATION_MICRO_FRAMES is the
+          // token already documented for exactly this ("a single label"
+          // flicking in), reused rather than inventing a new one.
+          const targetLabelOpacity = animate(
+            beat2Start,
+            tokens.DURATION_MICRO_FRAMES,
+            0,
+            tokens.OPACITY_LABEL,
+          );
+
           return (
             <g key={key}>
               <rect
@@ -242,19 +301,40 @@ export const BarChart: React.FC<Props> = ({
                 height={whiteHeight}
                 fill={white(tokens.OPACITY_BOLD)}
               />
+
+              {/* Current-value label, black, centred inside the white
+                  segment's final resting position — same static-label
+                  convention as the target/category labels below. Sits
+                  above the white rect in DOM order so it stays legible
+                  once the white fill covers it; before that (early beat
+                  1) it's black-on-black, which just means it reads in as
+                  the bar grows up around it rather than needing its own
+                  fade/reveal logic. */}
+              <text
+                x={barX + barWidth / 2}
+                y={(plotBottom + fromY) / 2}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={tokens.COLOR_BLACK}
+                style={labelStyle}
+              >
+                {from}
+              </text>
+
               <rect
                 x={barX}
                 y={amberTop}
                 width={barWidth}
                 height={amberHeight}
                 fill={tokens.COLOR_AMBER_GAP}
+                filter={`url(#${glowFilterId})`}
               />
 
               <text
                 x={barX + barWidth / 2}
-                y={barTop - tokens.SPACE_SM_PX}
+                y={barTop - targetLabelClearance}
                 textAnchor="middle"
-                fill={white(tokens.OPACITY_LABEL)}
+                fill={white(targetLabelOpacity)}
                 style={labelStyle}
               >
                 {to}

@@ -1,9 +1,10 @@
-import { Composition } from "remotion";
+import { AbsoluteFill, Composition } from "remotion";
 import { BarChart } from "./components/BarChart";
 import * as TokensA from "./tokens.a";
 import * as TokensB from "./tokens.b";
 import * as TokensC from "./tokens.c";
 import {
+  COLOR_BLACK,
   DURATION_ENTER_FRAMES,
   PAUSE_BETWEEN_BEATS_FRAMES,
   STAGGER_FRAMES,
@@ -79,6 +80,30 @@ export const BarChartCompositions: React.FC = () => (
           height={HEIGHT}
           variantLabel="C"
         />
+      )}
+      durationInFrames={DURATION_IN_FRAMES}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+
+    {/* BarChart itself is transparent by design (composited over footage —
+        see BarChart.tsx). For a standard, shareable H.264 preview — a
+        codec with no alpha support — this composition backs it with a
+        solid black AbsoluteFill instead. The black lives here, at the
+        preview layer, not inside the reusable component. */}
+    <Composition
+      id="BarChartB-Preview"
+      component={() => (
+        <AbsoluteFill style={{ backgroundColor: COLOR_BLACK }}>
+          <BarChart
+            tokens={TokensB}
+            data={lifts}
+            width={WIDTH}
+            height={HEIGHT}
+            variantLabel="B"
+          />
+        </AbsoluteFill>
       )}
       durationInFrames={DURATION_IN_FRAMES}
       fps={FPS}
