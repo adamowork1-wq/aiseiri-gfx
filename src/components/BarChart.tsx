@@ -159,7 +159,7 @@ export const BarChart: React.FC<Props> = ({
           textTransform: tokens.TEXT_TRANSFORM_LABEL,
         }}
       >
-        {`Training max (kg) — variant ${variantLabel}`}
+        The Total
       </div>
 
       <svg

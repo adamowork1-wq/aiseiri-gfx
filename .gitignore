@@ -4,5 +4,8 @@ dist
 .env
 
 # Ignore rendered output from Git but not videos you import into src/.
-# (renamed from out/)
-Infographics
+# (renamed from out/). Lowercase to match the actual directory name —
+# the capitalised "Infographics" only worked by accident on this machine's
+# case-insensitive filesystem (core.ignorecase=true); a case-sensitive
+# clone (Linux CI, case-sensitive macOS) would have tracked every render.
+infographics/

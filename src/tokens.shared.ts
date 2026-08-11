@@ -198,7 +198,11 @@ export const FONT_FEATURE_TABULAR_NUMS = '"tnum" 1';
  * the amber gap-to-target segment, never the white current-value segment —
  * glow is part of amber's single meaning (the gap), not a general bar
  * effect. Kept small relative to bar width so the bloom stays a soft edge,
- * not a haze that swallows the bar. */
+ * not a haze that swallows the bar. The pillar burst used this too for a
+ * while (a white connector-line glow), but that whole connector system —
+ * lines, glow and all — was scrapped when the pillar burst dropped
+ * connectors entirely in favour of position/clustering alone; this token is
+ * bar-chart-only again. */
 export const GLOW_BLUR_STD_DEVIATION_PX = 6;
 
 // ---------------------------------------------------------------------------
@@ -234,14 +238,19 @@ export const FPS_REFERENCE = 30;
  * an inferred hero-numeral reveal duration; confirmed as the bar-chart's
  * beat-1 duration, so it now does double duty for both. Fast enough to
  * read as an instrument snapping to a reading rather than a slow,
- * decorative reveal. */
+ * decorative reveal. Reused by the pillar burst for the same purpose: the
+ * central "The Reason" bubble's own entrance, before the burst starts. */
 export const DURATION_ENTER_FRAMES = 18;
 
 /** DECIDED — beat 2 of the two-beat value reveal: the amber gap-to-target
  * segment growing from the top of the current-value bar up to the target,
  * per bar, ~0.8s. This is the literal "a bar rising to its value" case the
  * comment already described before the bar chart existed — now confirmed
- * against a real spec rather than just a plausible guess. */
+ * against a real spec rather than just a plausible guess. Also reused as
+ * each pillar's own fly-out-and-settle duration in the pillar burst's
+ * "scatter that resolves" motion — same "something travelling to its
+ * resolved value over ~0.8s" shape, just applied to a position instead of
+ * a bar height. */
 export const DURATION_LINE_DRAW_FRAMES = 24;
 
 /** INFERRED — duration for small secondary elements flicking in (a tick
@@ -249,30 +258,47 @@ export const DURATION_LINE_DRAW_FRAMES = 24;
  * ticking over, not individually-announced reveals. */
 export const DURATION_MICRO_FRAMES = 6;
 
-/** INFERRED — the gap between beat 1 (current value settles) and beat 2
- * (amber gap-to-target starts growing) in the bar-chart reveal: a "short
- * pause" was specified without an exact duration, so this picks one. 6
- * frames / 0.2s — long enough to read as a deliberate beat rather than a
- * dropped frame, short enough that the two beats still feel like one
- * continuous reveal rather than two disconnected animations. */
+/** INFERRED — the gap between two beats of a reveal: the bar chart's
+ * "short pause" between beat 1 (current value settles) and beat 2 (amber
+ * gap-to-target starts growing), and the pillar burst's pause between
+ * "The Reason" settling and the burst starting. Neither spec gave an
+ * exact duration, so this one value picks it for both: 6 frames / 0.2s —
+ * long enough to read as a deliberate beat rather than a dropped frame,
+ * short enough that the sequence still feels continuous rather than two
+ * disconnected animations. */
 export const PAUSE_BETWEEN_BEATS_FRAMES = 6;
 
-/** DECIDED — per-item delay when staggering a sequence of like elements
- * (bar columns rising one after another, radar spokes revealing in turn).
- * 3 frames = 100ms at 30fps, per the bar chart's explicit "about 100ms
- * apart" spec. Supersedes an earlier inferred guess of 2 frames (~67ms). */
+/** DECIDED — per-item delay when staggering the bar chart's bars (bench →
+ * squat → clean). 3 frames = 100ms at 30fps, per the bar chart's explicit
+ * "about 100ms apart" spec. Supersedes an earlier inferred guess of 2
+ * frames (~67ms). Kept bar-chart-specific — see SCATTER_STAGGER_FRAMES for
+ * the pillar burst's own, different, stagger. */
 export const STAGGER_FRAMES = 3;
+
+/** DECIDED — per-pillar start-time delay in the pillar burst's "scatter
+ * that resolves" motion. Explicitly asked to be small relative to each
+ * pillar's own (much longer, DURATION_LINE_DRAW_FRAMES) travel duration —
+ * "slightly overlapping starts, not a strict one-at-a-time stagger...
+ * should feel like a scatter that resolves, not a sequence." At 3 frames
+ * apart over a 24-frame travel, up to 8 of the 11 pillars are mid-flight at
+ * once, which is what produces that feel: many things moving at the same
+ * time rather than a visible one-by-one ripple. Superseded the earlier
+ * STAGGER_BURST_FRAMES (2 frames / ~70ms), which staggered a much shorter
+ * 6-frame bubble pop and read as closer to sequential. */
+export const SCATTER_STAGGER_FRAMES = 3;
 
 /** DECIDED — how long the fully-resolved state holds before a composition
  * is allowed to end or loop, ~2s. Matches the bar chart's explicit "hold
- * the final state for at least 2 seconds." A composition's total duration
- * should be at least (last element's end frame) + this. */
+ * the final state for at least 2 seconds." Reused as the pillar burst's
+ * hold too, in the absence of a different spec for it. A composition's
+ * total duration should be at least (last element's end frame) + this. */
 export const HOLD_MIN_FRAMES = 60;
 
 /** INFERRED — cubic-bezier control points for a crisp "expo-out" ease:
  * fast start, hard settle, no overshoot. Chosen over a springy/bouncy
  * curve to match the flat, technical, HUD-like character of every still —
  * and confirmed by the bar chart's explicit "smooth ease-out ... no
- * bounce" spec for both of its beats. Use with Remotion's
+ * bounce" spec for both of its beats, and again by the pillar burst's
+ * "ease-out, no bounce" spec. Use with Remotion's
  * `Easing.bezier(...EASE_STANDARD)`. */
 export const EASE_STANDARD: readonly [number, number, number, number] = [0.16, 1, 0.3, 1];

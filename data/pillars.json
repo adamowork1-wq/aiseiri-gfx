@@ -1,0 +1,101 @@
+[
+  {
+    "name": "The Total",
+    "key": "the-total",
+    "icon": "Sigma",
+    "cluster": "PHYSICAL",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Fight",
+    "key": "the-fight",
+    "icon": "Swords",
+    "cluster": "PHYSICAL",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Sprint",
+    "key": "the-sprint",
+    "icon": "Zap",
+    "cluster": "PHYSICAL",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Ironman",
+    "key": "the-ironman",
+    "icon": "Anvil",
+    "cluster": "PHYSICAL",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Gates",
+    "key": "the-gates",
+    "icon": "DoorOpen",
+    "cluster": "PHYSICAL",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Intellect",
+    "key": "the-intellect",
+    "icon": "Brain",
+    "cluster": "MIND",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Lore",
+    "key": "the-lore",
+    "icon": "BookOpen",
+    "cluster": "MIND",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Calm",
+    "key": "the-calm",
+    "icon": "WavesHorizontal",
+    "cluster": "MIND",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Standard",
+    "key": "the-standard",
+    "icon": "Flag",
+    "cluster": "CHARACTER",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Circle",
+    "key": "the-circle",
+    "icon": "Circle",
+    "cluster": "CHARACTER",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Engine",
+    "key": "the-engine",
+    "icon": "Cog",
+    "cluster": "CRAFT",
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  }
+]
