@@ -2,8 +2,7 @@
   {
     "name": "The Total",
     "key": "the-total",
-    "icon": "Sigma",
-    "cluster": "PHYSICAL",
+    "ringIndex": 0,
     "iconScale": 1,
     "iconOffsetX": 0,
     "iconOffsetY": 0
@@ -11,8 +10,7 @@
   {
     "name": "The Fight",
     "key": "the-fight",
-    "icon": "Swords",
-    "cluster": "PHYSICAL",
+    "ringIndex": 1,
     "iconScale": 1,
     "iconOffsetX": 0,
     "iconOffsetY": 0
@@ -20,8 +18,7 @@
   {
     "name": "The Sprint",
     "key": "the-sprint",
-    "icon": "Zap",
-    "cluster": "PHYSICAL",
+    "ringIndex": 2,
     "iconScale": 1,
     "iconOffsetX": 0,
     "iconOffsetY": 0
@@ -29,8 +26,7 @@
   {
     "name": "The Ironman",
     "key": "the-ironman",
-    "icon": "Anvil",
-    "cluster": "PHYSICAL",
+    "ringIndex": 3,
     "iconScale": 1,
     "iconOffsetX": 0,
     "iconOffsetY": 0
@@ -38,35 +34,7 @@
   {
     "name": "The Gates",
     "key": "the-gates",
-    "icon": "DoorOpen",
-    "cluster": "PHYSICAL",
-    "iconScale": 1,
-    "iconOffsetX": 0,
-    "iconOffsetY": 0
-  },
-  {
-    "name": "The Intellect",
-    "key": "the-intellect",
-    "icon": "Brain",
-    "cluster": "MIND",
-    "iconScale": 1,
-    "iconOffsetX": 0,
-    "iconOffsetY": 0
-  },
-  {
-    "name": "The Lore",
-    "key": "the-lore",
-    "icon": "BookOpen",
-    "cluster": "MIND",
-    "iconScale": 1,
-    "iconOffsetX": 0,
-    "iconOffsetY": 0
-  },
-  {
-    "name": "The Calm",
-    "key": "the-calm",
-    "icon": "WavesHorizontal",
-    "cluster": "MIND",
+    "ringIndex": 4,
     "iconScale": 1,
     "iconOffsetX": 0,
     "iconOffsetY": 0
@@ -74,17 +42,31 @@
   {
     "name": "The Standard",
     "key": "the-standard",
-    "icon": "Flag",
-    "cluster": "CHARACTER",
+    "ringIndex": 5,
     "iconScale": 1,
     "iconOffsetX": 0,
     "iconOffsetY": 0
   },
   {
-    "name": "The Circle",
-    "key": "the-circle",
-    "icon": "Circle",
-    "cluster": "CHARACTER",
+    "name": "The Calm",
+    "key": "the-calm",
+    "ringIndex": 6,
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Giving",
+    "key": "the-giving",
+    "ringIndex": 7,
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Intellect",
+    "key": "the-intellect",
+    "ringIndex": 8,
     "iconScale": 1,
     "iconOffsetX": 0,
     "iconOffsetY": 0
@@ -92,8 +74,23 @@
   {
     "name": "The Engine",
     "key": "the-engine",
-    "icon": "Cog",
-    "cluster": "CRAFT",
+    "ringIndex": 9,
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Circle",
+    "key": "the-circle",
+    "ringIndex": 10,
+    "iconScale": 1,
+    "iconOffsetX": 0,
+    "iconOffsetY": 0
+  },
+  {
+    "name": "The Lore",
+    "key": "the-lore",
+    "ringIndex": 11,
     "iconScale": 1,
     "iconOffsetX": 0,
     "iconOffsetY": 0

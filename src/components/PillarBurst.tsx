@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { Easing, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
-import * as LucideIcons from "lucide-react";
 import { loadFont } from "@remotion/google-fonts/CormorantGaramond";
 import type * as TokensB from "../tokens.b";
 
@@ -14,18 +13,21 @@ const { fontFamily: engravedFontFamily } = loadFont("normal", {
 
 type TokenSet = typeof TokensB;
 
-export type Cluster = "PHYSICAL" | "MIND" | "CHARACTER" | "CRAFT";
-
 export type Pillar = {
   name: string;
-  /** kebab-case identifier — matches the PNG filename in public/icons/
-   * (`${key}.png`) and is otherwise just this pillar's stable id. */
+  /** kebab-case identifier — a stable id for this pillar (React key, Map
+   * key in computeHoneycombOffsets). No longer tied to the icon filename —
+   * see PillarIcon, which looks up artwork by `name`, not `key`. */
   key: string;
-  /** Lucide icon component name, used only when the PNG at
-   * public/icons/${key}.png is missing or fails to load. */
-  icon: string;
-  /** Which loose grouping this pillar belongs to. */
-  cluster: Cluster;
+  /** 0-11 — position in a single interleaved sequence around the two
+   * hex-grid rings: even values are ring-1 slots, odd values are ring-2
+   * (nestled) slots, walked ring1_0, ring2_0, ring1_1, ring2_1, ... (see
+   * computeHoneycombOffsets). Every consecutive pair in this sequence is a
+   * genuinely touching-distance-apart pair of positions, so related
+   * pillars listed consecutively in data/pillars.json land adjacent in
+   * the layout. No hexagon shapes are actually drawn — this only governs
+   * where each icon sits. */
+  ringIndex: number;
   /** Multiplies the icon's default size. 1 = default. */
   iconScale: number;
   /** Icon offset from its own centre, in px at 1080p. */
@@ -40,217 +42,229 @@ type Props = {
   height: number;
 };
 
-// lucide-react exports one named component per icon (PascalCase, e.g.
-// `Sigma`, `WavesHorizontal`) rather than a single lookup table, so this
-// casts the whole namespace import into one for the JSON-driven `icon`
-// field to key into. A minimal local prop type stands in for lucide's own
-// (unexported) prop type — only what's actually used here.
-type LucideIconProps = {
-  size?: number;
-  strokeWidth?: number;
-  color?: string;
-  style?: React.CSSProperties;
-};
-const LucideIconsByName = LucideIcons as unknown as Record<
-  string,
-  React.ComponentType<LucideIconProps>
->;
-
 const REASON_LABEL = "The Reason";
-const ICON_BASE_SIZE = 108; // px @1080p — a picked constant, nothing to size it against
-const LABEL_WIDTH = 210; // px @1080p, fixed
-const LABEL_FONT_SIZE = 26; // INFERRED — small-caps serif reads smaller than sans at the same size; bumped up from FONT_SIZE_LABEL_PX (22) for legibility, not pulled from a shared token since this composition's type is its own scoped choice
+
+const ICON_FILTER = "contrast(1.5) brightness(1.2)"; // DECIDED — "only the reason is a clear white... the others seem a little dull." Sampled pixel values confirm every icon PNG's line art peaks at the same 255 white (see PowerShell sampling, scratch) — the dullness is thin strokes anti-aliasing against black at the pillars' smaller render size, not a difference in the source art. This filter pushes partial-white edge pixels decisively toward solid white before the mix-blend-mode: screen composite.
+
+// ---------------------------------------------------------------------------
+// Positioning geometry only — no hexagon shapes are drawn (removed on
+// explicit instruction, "get rid of the hexagons, keep everything else
+// the same"), but every icon's position still comes from the same
+// underlying hex-grid spacing math this layout has used throughout, kept
+// unchanged: LATTICE_SPACING_PX is the touching-neighbour distance a real
+// hex tiling of this cell size would have — the one number everything
+// else derives from — and CELL_HEX_RADIUS_PX (what would have been each
+// hexagon's circumradius) still sets icon sizing below, even though no
+// hexagon of that radius is ever actually rendered.
+// ---------------------------------------------------------------------------
+const LATTICE_SPACING_PX = 320;
+const CELL_HEX_RADIUS_PX = LATTICE_SPACING_PX / Math.sqrt(3);
+
+// DECIDED — icons sized to sit well inside their reserved LATTICE_SPACING_PX
+// footprint rather than filling it completely, leaving a little clearance
+// around each glyph (see the pixel-sampling note on ICON_FILTER above).
+const ICON_BASE_SIZE = LATTICE_SPACING_PX * 0.75;
+
+// DECIDED — "scale its emblem up so it fills the entire hexagon edge to
+// edge, and put the label back centred over the emblem rather than below
+// it." REASON_ICON_SIZE is 2x CELL_HEX_RADIUS_PX — what would have been
+// that hexagon's vertex-to-vertex width, its widest dimension — kept
+// unchanged even though there's no longer a hexagon outline for it to
+// reach edge-to-edge against.
+const REASON_ICON_SIZE = 2 * CELL_HEX_RADIUS_PX;
+const REASON_FONT_SIZE = 64; // DECIDED — "bigger, writing in front of the emblem" (was 30, then 46). Still rendered last in the DOM (see the JSX below), so it's already painted on top of the emblem — that part didn't need a code change, just confirming it holds at the larger size.
+const REASON_WIDTH = 640; // kept proportional to REASON_FONT_SIZE (10x, same ratio as before) so the box still comfortably fits the wider text.
+
+// DECIDED — "the label is hard to read against its emblem... drop it to
+// 30% opacity so it sits behind as a watermark." Now animated rather than
+// a static value — "have the emblem shift from full opacity to the
+// current [0.3] over the course of the clip" — see reasonEmblemOpacity in
+// PillarBurst below.
+const REASON_EMBLEM_SETTLED_OPACITY = 0.3;
 
 const white = (opacity: number) => `rgba(255, 255, 255, ${opacity})`;
 
+// DECIDED — "open with the transform scaled up enough that Reason's
+// hexagon fills most of the frame — everything else is off-screen because
+// we're that close in." At this scale, Reason's icon footprint
+// (CELL_HEX_RADIUS_PX wide when unscaled) reaches ~85% of the frame's
+// 1080px width, and Reason's six directly-touching neighbours
+// (LATTICE_SPACING_PX away in world space) sit at 2.5x that — 800px from
+// centre — well past the frame's own 540px half-width, i.e. genuinely
+// off-screen, not just small.
+const CAMERA_START_SCALE = 2.5;
+
+// DECIDED — "end wide enough that every one of the thirteen hexagons is
+// fully visible in frame." Computed against the thirteen pillar-or-Reason
+// positions' exact world-space bounding box (tune-no-filler.js, scratch:
+// x=[-739.0,739.0], y=[-640.0,640.0], so 1478.0 x 1280.0) — 0.68 keeps
+// every icon's full reserved footprint inside the 1080x1920 frame with
+// real margin (~37.5px each side horizontally, the binding dimension;
+// ~525px vertically top and bottom, nowhere close to binding), not a
+// razor-thin fit.
+const CAMERA_END_SCALE = 0.68;
+
+// DECIDED — "slow and continuous... still easing out slightly after the
+// last emblem lands." Long enough to run well past the last pillar's own
+// arrival finishing (11*STAGGER_BURST_FRAMES + DURATION_MICRO_FRAMES from
+// frame 0, since the burst now starts immediately — see PillarBurst
+// below). Exported so PillarBurstCompositions.tsx can size the
+// composition's total length around it without duplicating the number.
+export const CAMERA_ZOOM_DURATION_FRAMES = 100;
+
 type Point = { x: number; y: number };
-type Bounds = { cx: number; cy: number; halfW: number; halfH: number };
+
+// ---------------------------------------------------------------------------
+// Two rings of positions around Reason — no hexagon shapes are drawn at
+// these positions (see the note above LATTICE_SPACING_PX), but the
+// positions themselves are still exactly where a real two-ring hex
+// tiling would place them.
+//
+// Ring 1 — six positions at LATTICE_SPACING_PX from Reason, 60° apart,
+// starting straight up.
+//
+// Ring 2 — six "nestled" positions, one between each pair of adjacent
+// ring-1 slots, at radius LATTICE_SPACING_PX * sqrt(3).
+// ---------------------------------------------------------------------------
+const deg2rad = (deg: number): number => (deg * Math.PI) / 180;
+const polarOffset = (angleDeg: number, radius: number): Point => ({
+  x: Math.cos(deg2rad(angleDeg)) * radius,
+  y: Math.sin(deg2rad(angleDeg)) * radius,
+});
 
 /**
- * Deterministic pseudo-random value in [0, 1) from an integer seed — the
- * standard sine-hash trick. Used only for the small per-pillar jitter in
- * computeScatterPositions below, so the "loose" look is reproducible frame
- * to frame and render to render rather than actually random.
- */
-const pseudoRandom = (seed: number): number => {
-  const x = Math.sin(seed * 12.9898) * 43758.5453;
-  return x - Math.floor(x);
-};
-
-/**
- * Groups pillars by cluster in the given walking order, preserving each
- * pillar's original index in `pillars` (that index still seeds its scatter
- * jitter and stagger — layout never changes timing).
- */
-const groupByCluster = (pillars: Pillar[], order: Cluster[]) =>
-  order.map((cluster) => ({
-    cluster,
-    members: pillars
-      .map((pillar, index) => ({ pillar, index }))
-      .filter((m) => m.pillar.cluster === cluster),
-  }));
-
-const GAP_DEG = 32; // angular buffer between adjacent clusters' wedges
-const JITTER_ANGLE_DEG = 1.5; // max per-pillar angular nudge, either direction
-const JITTER_RADIUS_FRAC = 0.04; // max per-pillar radius nudge, as a fraction of the base radius
-
-/**
- * "Loose groupings": each cluster gets its own wedge of angular territory
- * around Reason, sized proportionally to its member count rather than a
- * fixed quarter each — PHYSICAL (5 members) needs roughly 5/11 of the
- * circle to keep its labels clear of each other, not the same 90° budget
- * as CRAFT (1 member). Wedges tile the full circle with a GAP_DEG buffer
- * between them, walked in a fixed order starting from "up" so PHYSICAL
- * reads as the top cluster the way every earlier layout did.
+ * Each pillar's position around Reason, following hex-grid spacing — no
+ * hexagon outlines are drawn at these positions, just icons.
  *
- * Within its wedge, each cluster's members sit on a shared-radius arc,
- * evenly spaced corner-to-corner across the wedge, then nudged by a small
- * deterministic angle/radius jitter (see pseudoRandom above) so the result
- * reads as a loose cluster rather than a mechanically even one — "loose
- * groupings... rather than an even ring."
+ * `ringIndex` walks both rings interleaved — ring1_0, ring2_0, ring1_1,
+ * ring2_1, ... — because in that specific order, every consecutive pair
+ * is a touching-distance-apart pair: ring1_k to ring2_k (its nestled
+ * neighbour) and ring2_k to ring1_(k+1) (the other ring-1 position it's
+ * nestled against). Listing related pillars consecutively in
+ * data/pillars.json therefore keeps them adjacent in the layout.
  *
- * The "radius" is actually an ellipse (Rx, Ry), not a circle: the frame's
- * usable half-width is roughly double its usable half-height, so a
- * circular layout wastes the horizontal room while being bottlenecked by
- * height for near-vertical members (PHYSICAL's own centre, pointing
- * straight up). Stretching horizontally buys back headroom for GAP_DEG and
- * per-cluster spacing without pushing any member past the frame's actual
- * limit in either axis.
- *
- * This went through two failed passes before landing here, both caught by
- * actually computing pairwise distances rather than eyeballing the trig
- * (see tune-scatter.js in scratch): a fixed 90°-per-cluster budget forced
- * PHYSICAL's required radius past the frame's half-height; fixing that
- * with a small proportional-share GAP_DEG (10°) then left adjacent
- * clusters' *edge* members only 10° apart at the same radius — the actual
- * bug rendered at frame 90 (The Total and The Calm overlapping) — because
- * the within-cluster spacing check never covered the boundary between two
- * different clusters. GAP_DEG=32 and the Rx/Ry split above are both sized
- * against that boundary case specifically, not just the intra-cluster one.
+ * Every position here is Reason-relative (an offset, not an absolute
+ * point) — the caller adds Reason's fixed world position once, then the
+ * *entire* result (Reason included) goes through one shared camera-scale
+ * transform. Keeping this function's output camera-agnostic is what makes
+ * "one group, nothing scales independently" straightforward to guarantee.
  */
-const computeScatterPositions = (pillars: Pillar[], b: Bounds): Map<string, Point> => {
-  const positions = new Map<string, Point>();
-  const rx = b.halfW * 0.7;
-  const ry = b.halfH * 0.77;
-
-  const order: Cluster[] = ["PHYSICAL", "CHARACTER", "CRAFT", "MIND"];
-  const groups = groupByCluster(pillars, order);
-  const total = pillars.length;
-  const availableDeg = 360 - GAP_DEG * order.length;
-
-  // Centre PHYSICAL's wedge on "up" (-90°, screen-space where 0° = right
-  // and +90° = down), then walk the remaining clusters clockwise from there.
-  const physicalShare = (groups[0].members.length / total) * availableDeg;
-  let cursor = -90 - physicalShare / 2;
-
-  for (const { members } of groups) {
-    const count = members.length;
-    if (count === 0) {
-      cursor += GAP_DEG;
-      continue;
-    }
-    const share = (count / total) * availableDeg;
-    const wedgeStart = cursor;
-
-    members.forEach(({ pillar, index }, i) => {
-      const baseAngleDeg =
-        count === 1 ? wedgeStart + share / 2 : wedgeStart + (share * i) / (count - 1);
-      const angleJitterDeg = (pseudoRandom(index * 2 + 1) - 0.5) * 2 * JITTER_ANGLE_DEG;
-      const radiusJitterFrac = (pseudoRandom(index * 2 + 2) - 0.5) * 2 * JITTER_RADIUS_FRAC;
-      const angleRad = ((baseAngleDeg + angleJitterDeg) * Math.PI) / 180;
-      const rf = 1 + radiusJitterFrac;
-      positions.set(pillar.key, {
-        x: b.cx + Math.cos(angleRad) * rx * rf,
-        y: b.cy + Math.sin(angleRad) * ry * rf,
-      });
-    });
-
-    cursor += share + GAP_DEG;
+const computeHoneycombOffsets = (pillars: Pillar[]): Map<string, Point> => {
+  const offsets = new Map<string, Point>();
+  for (const pillar of pillars) {
+    const ring = pillar.ringIndex % 2 === 0 ? 1 : 2;
+    const slot = Math.floor(pillar.ringIndex / 2);
+    const angleDeg = ring === 1 ? -90 + 60 * slot : -60 + 60 * slot;
+    const radius = ring === 1 ? LATTICE_SPACING_PX : LATTICE_SPACING_PX * Math.sqrt(3);
+    offsets.set(pillar.key, polarOffset(angleDeg, radius));
   }
-
-  return positions;
+  return offsets;
 };
 
 /**
- * One pillar's artwork: the PNG at public/icons/${key}.png if it loads —
- * white line art on black, composited with mix-blend-mode: screen so the
- * black drops out and only the white survives — falling back to the
- * matching Lucide icon if the PNG 404s or hasn't been added yet. Per
- * Remotion's own Img docs, an onError handler must unmount the failed
- * <Img> or swap its src; this unmounts it (via the `failed` state) and
- * renders the Lucide fallback in its place.
+ * One pillar's artwork: the PNG at public/icons/, named exactly after the
+ * pillar's display name — "The Total.png", "The Reason.png" — capitals and
+ * spaces intact, not the kebab-case `key`. staticFile() URL-encodes its
+ * argument itself (Remotion 4.0+, see node_modules/remotion/.../
+ * static-file.js) — it even warns if you pass an already-encoded path — so
+ * the space is passed through raw; wrapping it in encodeURIComponent here
+ * double-encodes it into "%2520" and 404s. White line art on black,
+ * composited with mix-blend-mode: screen so the black drops out and only
+ * the white survives.
+ *
+ * Takes just the handful of fields it actually needs rather than a whole
+ * Pillar, so it can render Reason's own (differently-sized) emblem too —
+ * Reason isn't a member of `pillars` (it's the fixed point everything else
+ * travels from), so it has no ring index/key of its own to speak of.
+ *
+ * No Lucide (or any other) fallback: every pillar now has real artwork, so
+ * a missing file should be visible as missing — a dashed placeholder box —
+ * rather than silently substituted with a plausible-looking stand-in. Per
+ * Remotion's own Img docs, onError still has to unmount the failed <Img>
+ * (swapping to the placeholder does that) rather than leave it unhandled.
  */
 const PillarIcon: React.FC<{
-  pillar: Pillar;
+  name: string;
+  iconScale: number;
+  iconOffsetX: number;
+  iconOffsetY: number;
   baseSize: number;
-  color: string;
-  strokeWidth: number;
-}> = ({ pillar, baseSize, color, strokeWidth }) => {
+}> = ({ name, iconScale, iconOffsetX, iconOffsetY, baseSize }) => {
   const [failed, setFailed] = useState(false);
-  const size = baseSize * pillar.iconScale;
-  const offset = `translate(${pillar.iconOffsetX}px, ${pillar.iconOffsetY}px)`;
+  const size = baseSize * iconScale;
+  const offset = `translate(${iconOffsetX}px, ${iconOffsetY}px)`;
 
-  if (!failed) {
+  if (failed) {
     return (
-      <Img
-        src={staticFile(`icons/${pillar.key}.png`)}
-        onError={() => setFailed(true)}
+      <div
         style={{
           width: size,
           height: size,
-          objectFit: "contain",
+          boxSizing: "border-box",
+          border: `1px dashed ${white(0.35)}`,
           transform: offset,
-          mixBlendMode: "screen",
         }}
       />
     );
   }
 
-  const Fallback = LucideIconsByName[pillar.icon];
-  return Fallback ? (
-    <Fallback size={size} strokeWidth={strokeWidth} color={color} style={{ transform: offset }} />
-  ) : null;
+  return (
+    <Img
+      src={staticFile(`icons/${name}.png`)}
+      onError={() => setFailed(true)}
+      style={{
+        width: size,
+        height: size,
+        objectFit: "contain",
+        transform: offset,
+        mixBlendMode: "screen",
+        filter: ICON_FILTER,
+      }}
+    />
+  );
 };
 
 /**
- * "The Reason" appears at centre as text — no circle, no connectors,
- * nothing linking it to the pillars — then the eleven pillars emerge from
- * that word itself: each one starts small, near-invisible and positioned
- * exactly at Reason's own centre point, then travels out to its resting
- * spot while scaling up and fading in, all driven by one eased progress
- * value per pillar (see `animate` below, using EASE_STANDARD — "fast at
- * first, then decelerate hard and settle," which is exactly the shape that
- * curve was already documented as producing). Pillars are staggered only
- * slightly relative to how long each one travels
- * (SCATTER_STAGGER_FRAMES vs. DURATION_LINE_DRAW_FRAMES), so many are
- * mid-flight at once — "should feel like a scatter that resolves, not a
- * sequence," not the earlier one-at-a-time bubble pop.
+ * Portrait (1080x1920) — this composition is iPhone-shaped; the bar chart
+ * stays landscape. Everything — Reason's emblem, its label, and all
+ * twelve pillar icons — lives inside one shared group (see the wrapping
+ * `<div>` in the JSX below) with a single `transform: scale()` around the
+ * frame's exact centre, which is also Reason's own fixed world position.
+ * That single transform *is* the camera: `cameraScale` starts at
+ * CAMERA_START_SCALE (zoomed in enough that Reason's icon fills most of
+ * the frame and the rest of the layout is off-screen) and eases down to
+ * CAMERA_END_SCALE (wide enough that all thirteen positions — Reason and
+ * the twelve pillars — sit fully inside the frame, with margin) over
+ * CAMERA_ZOOM_DURATION_FRAMES with EASE_STANDARD ("fast at first, then
+ * decelerate hard and settle"). Nothing scales independently of anything
+ * else — a pillar mid-arrival is exactly as affected by the camera as
+ * Reason or a fully-settled neighbour, because they're all the same
+ * transform.
  *
- * Position and clustering alone carry the structure now — no spokes, no
- * circuit traces. Every pillar still belongs to one of four loose
- * groupings (PHYSICAL / MIND / CHARACTER / CRAFT), computed by
- * computeScatterPositions above, but nothing is drawn to show the
- * grouping directly; it reads from where each pillar lands. This replaces
- * the earlier "compass" layout (straight trunks + crossbars) and its
- * "cybersigilism meets Tron" thick glowing connectors — both fully
- * removed rather than left dead; see git history if either is ever wanted
- * again.
+ * The burst and the camera start at the same instant, frame 0 — "the
+ * emblems appearing and the camera pulling back happen simultaneously and
+ * continuously... one long move, not a zoom followed by a reveal." The
+ * twelve pillars emerge one at a time in quick succession
+ * (STAGGER_BURST_FRAMES apart), each arriving over DURATION_MICRO_FRAMES.
+ * Reason itself is simply present from frame 0 — the opening tightness
+ * comes entirely from the camera being zoomed in on it, not from a
+ * fade-in.
  *
- * Each pillar is just its icon with its name below it — no circles, no
- * fills, no colour anywhere: pure white on black. Pillar data (name, icon,
- * cluster, icon placement) comes from `pillars` (data/pillars.json).
+ * No hexagon outlines, no lines drawn between anything, and no pillar
+ * keeps a label; Reason is the only one, per explicit instruction. The
+ * layout's own (unscaled) size is set against the full 1080x1920 frame
+ * (see the layout constants above) — at camera scale 1 it's deliberately
+ * wider than the frame, so the leftmost and rightmost positions run
+ * off-canvas even at the settled view.
+ *
+ * Pure white on black, no fills, no colour anywhere. Pillar data (name,
+ * icon, layout order) comes from `pillars` (data/pillars.json).
  *
  * Type is Cormorant Garamond, not the system's usual Space Grotesk — set
  * in small caps with wide tracking to match the icons' engraving style.
- * Small caps only affects lowercase letters, so pillar/Reason names are
- * rendered in their natural case ("The Total"), not forced uppercase —
- * forcing uppercase first would make the small-caps transform a no-op.
- *
- * Timing: Reason enters over DURATION_ENTER_FRAMES, a
- * PAUSE_BETWEEN_BEATS_FRAMES pause, then each pillar launches over
- * DURATION_LINE_DRAW_FRAMES, staggered SCATTER_STAGGER_FRAMES apart in
- * `pillars` order, then HOLD_MIN_FRAMES once the last one lands. All from
- * tokens.shared.ts.
+ * Small caps only affects lowercase letters, so Reason's name is rendered
+ * in its natural case ("The Reason"), not forced uppercase — forcing
+ * uppercase first would make the small-caps transform a no-op.
  */
 export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height }) => {
   const frame = useCurrentFrame();
@@ -263,16 +277,11 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
       extrapolateRight: "clamp",
     });
 
-  const cx = width / 2;
-  const cy = height / 2;
-  const shorterDim = Math.min(width, height);
-
-  // Same reasoning as every previous version: this structure needs much
-  // less reserved margin than the bar chart's rectangular plot.
-  const margin = tokens.SPECIMEN_MARGIN_RATIO * shorterDim * 0.28;
-  const bounds: Bounds = { cx, cy, halfW: width / 2 - margin, halfH: height / 2 - margin };
-
-  const scatterPositions = computeScatterPositions(pillars, bounds);
+  // The true frame centre — Reason's fixed world position, and the origin
+  // every pillar's own position is an offset from (see
+  // computeHoneycombOffsets).
+  const centre: Point = { x: width / 2, y: height / 2 };
+  const honeycombOffsets = computeHoneycombOffsets(pillars);
 
   const textStyle: React.CSSProperties = {
     fontFamily: engravedFontFamily,
@@ -280,31 +289,45 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
     fontVariant: "small-caps",
     letterSpacing: "0.14em",
     textAlign: "center",
-    fontSize: LABEL_FONT_SIZE,
+    fontSize: REASON_FONT_SIZE,
+    // Explicit (not the ~1.2x "normal" default) so two stacked lines occupy
+    // a predictable, exactly-known height — see the label's own "top" math
+    // below, which centres a 2*REASON_FONT_SIZE-tall block on centre.y.
+    lineHeight: `${REASON_FONT_SIZE}px`,
   };
 
-  // Beat 1 — Reason settles at the centre.
-  const reasonProgress = animate(0, tokens.DURATION_ENTER_FRAMES, 0, 1);
+  // The camera. Starts at frame 0, alongside the burst below — one
+  // continuous move, not staged after a separate "Reason alone" beat.
+  const cameraScale = animate(0, CAMERA_ZOOM_DURATION_FRAMES, CAMERA_START_SCALE, CAMERA_END_SCALE);
 
-  // Beat 2 — the scatter. Starts once Reason has settled plus a pause;
-  // each pillar gets its own start time from a small stagger, keyed to its
-  // index in `pillars` — unaffected by cluster/layout.
-  const burstStart = tokens.DURATION_ENTER_FRAMES + tokens.PAUSE_BETWEEN_BEATS_FRAMES;
+  // Reason's emblem: full opacity at the open, easing down to its settled
+  // watermark opacity over the same span and easing as the camera move —
+  // "over the course of the clip" tied to the one long continuous move
+  // everything else already rides, rather than its own separate timing.
+  const reasonEmblemOpacity = animate(0, CAMERA_ZOOM_DURATION_FRAMES, 1, REASON_EMBLEM_SETTLED_OPACITY);
+
+  // The burst. Each pillar's emblem launches STAGGER_BURST_FRAMES after
+  // the previous one, keyed to its index in `pillars`.
+  const burstStart = 0;
 
   const items = pillars.map((pillar, i) => {
-    const startDelay = burstStart + i * tokens.SCATTER_STAGGER_FRAMES;
-    const progress = animate(startDelay, tokens.DURATION_LINE_DRAW_FRAMES, 0, 1);
-    const finalPos = scatterPositions.get(pillar.key);
-    if (!finalPos) {
-      throw new Error(`No scatter position computed for pillar "${pillar.key}"`);
+    const emblemStart = burstStart + i * tokens.STAGGER_BURST_FRAMES;
+    const emblemProgress = animate(emblemStart, tokens.DURATION_MICRO_FRAMES, 0, 1);
+
+    const offset = honeycombOffsets.get(pillar.key);
+    if (!offset) {
+      throw new Error(`No honeycomb offset computed for pillar "${pillar.key}"`);
     }
     // Travels from Reason's own centre point out to its resting position —
     // "emerge from that word itself" — with opacity and scale riding the
     // same eased progress, so it's small and near-invisible at the start
-    // and settles into full size/opacity exactly as it arrives.
-    const x = cx + (finalPos.x - cx) * progress;
-    const y = cy + (finalPos.y - cy) * progress;
-    return { pillar, progress, x, y };
+    // and settles into full size/opacity exactly as it arrives. This is
+    // the individual arrival lerp in world-space coordinates; the shared
+    // cameraScale transform (see the wrapping <div> below) is what turns
+    // that world-space position into what actually lands on screen.
+    const x = centre.x + offset.x * emblemProgress;
+    const y = centre.y + offset.y * emblemProgress;
+    return { pillar, emblemProgress, x, y };
   });
 
   return (
@@ -316,34 +339,70 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
         fontFamily: engravedFontFamily,
       }}
     >
-      {/* Reason label — no circle, just its name at the centre */}
+      {/* Reason and all twelve pillars, as one group, scaled around the
+          frame's exact centre (== Reason's own world position) by
+          cameraScale. This div spans the full frame, so its default
+          50%/50% transform origin already lands exactly on `centre`
+          without needing to compute one manually. Nothing in here has
+          its own independent scale transform beyond this one and each
+          pillar's own small arrival scale (emblemProgress), which is
+          about that pillar growing into being, not about the camera. No
+          hexagon outlines are drawn — removed on explicit instruction
+          ("get rid of the hexagons, keep everything else the same") —
+          this group is icons and text only now. */}
       <div
         style={{
           position: "absolute",
-          left: cx - LABEL_WIDTH / 2,
-          top: cy - LABEL_FONT_SIZE / 2,
-          width: LABEL_WIDTH,
-          opacity: reasonProgress,
-          color: white(tokens.OPACITY_BOLD),
-          ...textStyle,
+          left: 0,
+          top: 0,
+          width,
+          height,
+          transform: `scale(${cameraScale})`,
+          transformOrigin: "50% 50%",
         }}
       >
-        {REASON_LABEL}
-      </div>
+        {/* Reason's emblem — filling its reserved footprint edge to edge,
+            centred on Reason's own point. DECIDED — "the label is hard to
+            read against its emblem... drop it to 30% opacity so it sits
+            behind as a watermark," then "shift from full opacity to the
+            current [value] over the course of the clip" — see
+            reasonEmblemOpacity above. Opacity lives on this wrapper, not
+            inside PillarIcon, so it's scoped to Reason's own emblem only —
+            the other twelve pillar icons (rendered separately, below)
+            are untouched and stay at full opacity throughout. */}
+        <div
+          style={{
+            position: "absolute",
+            left: centre.x - REASON_ICON_SIZE / 2,
+            top: centre.y - REASON_ICON_SIZE / 2,
+            width: REASON_ICON_SIZE,
+            height: REASON_ICON_SIZE,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: reasonEmblemOpacity,
+          }}
+        >
+          <PillarIcon
+            name={REASON_LABEL}
+            iconScale={1}
+            iconOffsetX={0}
+            iconOffsetY={0}
+            baseSize={REASON_ICON_SIZE}
+          />
+        </div>
 
-      {/* Pillar icons + labels, travelling out from Reason's centre to
-          their resting position. Label always directly below the icon. */}
-      {items.map(({ pillar, progress, x, y }) => (
-        <React.Fragment key={pillar.key}>
+        {items.map(({ pillar, emblemProgress, x, y }) => (
           <div
+            key={pillar.key}
             style={{
               position: "absolute",
               left: x - ICON_BASE_SIZE / 2,
               top: y - ICON_BASE_SIZE / 2,
               width: ICON_BASE_SIZE,
               height: ICON_BASE_SIZE,
-              opacity: progress,
-              transform: `scale(${progress})`,
+              opacity: emblemProgress,
+              transform: `scale(${emblemProgress})`,
               transformOrigin: "center",
               display: "flex",
               alignItems: "center",
@@ -351,28 +410,46 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
             }}
           >
             <PillarIcon
-              pillar={pillar}
+              name={pillar.name}
+              iconScale={pillar.iconScale}
+              iconOffsetX={pillar.iconOffsetX}
+              iconOffsetY={pillar.iconOffsetY}
               baseSize={ICON_BASE_SIZE}
-              color={white(tokens.OPACITY_HAIRLINE)}
-              strokeWidth={1.5}
             />
           </div>
+        ))}
 
-          <div
-            style={{
-              position: "absolute",
-              left: x - LABEL_WIDTH / 2,
-              top: y + ICON_BASE_SIZE / 2 + tokens.SPACE_SM_PX,
-              width: LABEL_WIDTH,
-              opacity: progress,
-              color: white(tokens.OPACITY_LABEL),
-              ...textStyle,
-            }}
-          >
-            {pillar.name}
-          </div>
-        </React.Fragment>
-      ))}
+        {/* Reason's name — "make it two lines so to speak, The is above
+            Reason" — split on the space in REASON_LABEL rather than a
+            second hardcoded string, so the two lines can never drift out
+            of sync with the name used for the icon file lookup elsewhere.
+            Each word its own line, centred as a block over the emblem
+            (still centre.y, no vertical shift). Block height is exactly
+            2*REASON_FONT_SIZE (two lines at the explicit lineHeight set in
+            textStyle above), so top = centre.y - REASON_FONT_SIZE centres
+            it precisely rather than approximately. Still rendered last in
+            this group (after every pillar icon, not just Reason's own
+            emblem) so it always paints on top — kept as free insurance
+            against the mix-blend-mode: screen text-eating bug an earlier
+            honeycomb layout actually hit, even though this overlay
+            position is exactly where that bug was originally seen, so the
+            insurance is doing real work again here, not just standing by
+            unused. */}
+        <div
+          style={{
+            position: "absolute",
+            left: centre.x - REASON_WIDTH / 2,
+            top: centre.y - REASON_FONT_SIZE,
+            width: REASON_WIDTH,
+            color: white(tokens.OPACITY_BOLD),
+            ...textStyle,
+          }}
+        >
+          {REASON_LABEL.split(" ").map((word) => (
+            <div key={word}>{word}</div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

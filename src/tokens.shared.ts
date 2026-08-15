@@ -246,16 +246,20 @@ export const DURATION_ENTER_FRAMES = 18;
  * segment growing from the top of the current-value bar up to the target,
  * per bar, ~0.8s. This is the literal "a bar rising to its value" case the
  * comment already described before the bar chart existed — now confirmed
- * against a real spec rather than just a plausible guess. Also reused as
- * each pillar's own fly-out-and-settle duration in the pillar burst's
- * "scatter that resolves" motion — same "something travelling to its
- * resolved value over ~0.8s" shape, just applied to a position instead of
- * a bar height. */
+ * against a real spec rather than just a plausible guess. Was reused for a
+ * while as each pillar's own fly-out-and-settle duration during the pillar
+ * burst's "scatter that resolves" motion; that motion was redesigned back
+ * to a quick one-at-a-time burst (see STAGGER_BURST_FRAMES /
+ * DURATION_MICRO_FRAMES), so this is bar-chart-only again. */
 export const DURATION_LINE_DRAW_FRAMES = 24;
 
 /** INFERRED — duration for small secondary elements flicking in (a tick
  * mark, a single label), ~0.2s. Deliberately curt — instrumentation
- * ticking over, not individually-announced reveals. */
+ * ticking over, not individually-announced reveals. Reused as each
+ * pillar's own travel duration in the pillar burst's "one at a time...
+ * quick succession" ring burst — the same curt, secondary-element
+ * character, just applied to a pillar flying into the ring instead of a
+ * tick or label. */
 export const DURATION_MICRO_FRAMES = 6;
 
 /** INFERRED — the gap between two beats of a reveal: the bar chart's
@@ -271,21 +275,23 @@ export const PAUSE_BETWEEN_BEATS_FRAMES = 6;
 /** DECIDED — per-item delay when staggering the bar chart's bars (bench →
  * squat → clean). 3 frames = 100ms at 30fps, per the bar chart's explicit
  * "about 100ms apart" spec. Supersedes an earlier inferred guess of 2
- * frames (~67ms). Kept bar-chart-specific — see SCATTER_STAGGER_FRAMES for
+ * frames (~67ms). Kept bar-chart-specific — see STAGGER_BURST_FRAMES for
  * the pillar burst's own, different, stagger. */
 export const STAGGER_FRAMES = 3;
 
-/** DECIDED — per-pillar start-time delay in the pillar burst's "scatter
- * that resolves" motion. Explicitly asked to be small relative to each
- * pillar's own (much longer, DURATION_LINE_DRAW_FRAMES) travel duration —
- * "slightly overlapping starts, not a strict one-at-a-time stagger...
- * should feel like a scatter that resolves, not a sequence." At 3 frames
- * apart over a 24-frame travel, up to 8 of the 11 pillars are mid-flight at
- * once, which is what produces that feel: many things moving at the same
- * time rather than a visible one-by-one ripple. Superseded the earlier
- * STAGGER_BURST_FRAMES (2 frames / ~70ms), which staggered a much shorter
- * 6-frame bubble pop and read as closer to sequential. */
-export const SCATTER_STAGGER_FRAMES = 3;
+/** DECIDED — per-pillar start-time delay for the pillar burst's ring
+ * emerging "one at a time... quick succession" from Reason. 2 frames ≈
+ * 67ms at 30fps, the closest whole frame to the original "roughly 70ms
+ * apart" spec this design has come back around to. Paired with
+ * DURATION_MICRO_FRAMES (6) for each pillar's own travel — short enough
+ * relative to the 2-frame stagger that only one or two pillars are ever
+ * visibly in flight at once, reading as sequential rather than a scatter.
+ * This token existed once before under this exact name and value, was
+ * replaced by SCATTER_STAGGER_FRAMES when the motion was redesigned to
+ * overlap heavily ("a scatter that resolves, not a sequence"), and is
+ * back now that the request explicitly asked to move away from that and
+ * "go back closer to the original." */
+export const STAGGER_BURST_FRAMES = 2;
 
 /** DECIDED — how long the fully-resolved state holds before a composition
  * is allowed to end or loop, ~2s. Matches the bar chart's explicit "hold

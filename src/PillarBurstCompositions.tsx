@@ -1,14 +1,7 @@
 import { AbsoluteFill, Composition } from "remotion";
-import { PillarBurst, type Pillar } from "./components/PillarBurst";
+import { PillarBurst, CAMERA_ZOOM_DURATION_FRAMES, type Pillar } from "./components/PillarBurst";
 import * as TokensB from "./tokens.b";
-import {
-  COLOR_BLACK,
-  DURATION_ENTER_FRAMES,
-  PAUSE_BETWEEN_BEATS_FRAMES,
-  SCATTER_STAGGER_FRAMES,
-  DURATION_LINE_DRAW_FRAMES,
-  HOLD_MIN_FRAMES,
-} from "./tokens.shared";
+import { COLOR_BLACK, HOLD_MIN_FRAMES } from "./tokens.shared";
 import pillarsData from "../data/pillars.json";
 
 // JSON imports widen `cluster` to `string`; this asserts it back to the
@@ -17,20 +10,19 @@ import pillarsData from "../data/pillars.json";
 // this cast doesn't second-guess it, just restores the type TS erased.
 const pillars = pillarsData as Pillar[];
 
-const WIDTH = 1920;
-const HEIGHT = 1080;
+// Portrait (iPhone) — deliberately different from the bar chart, which
+// stays landscape at 1920x1080.
+const WIDTH = 1080;
+const HEIGHT = 1920;
 const FPS = 30;
 
-// Last pillar launches at (CATEGORY_COUNT - 1) * SCATTER_STAGGER_FRAMES
-// after burstStart and takes DURATION_LINE_DRAW_FRAMES to settle; hold
-// starts once it lands. 18 + 6 + 10*3 + 24 + 60 = 138 frames.
-const CATEGORY_COUNT = 11;
-const DURATION_IN_FRAMES =
-  DURATION_ENTER_FRAMES +
-  PAUSE_BETWEEN_BEATS_FRAMES +
-  (CATEGORY_COUNT - 1) * SCATTER_STAGGER_FRAMES +
-  DURATION_LINE_DRAW_FRAMES +
-  HOLD_MIN_FRAMES;
+// The burst and the camera zoom start together at frame 0 — "one long
+// move, not a zoom followed by a reveal" — so the composition's total
+// length is sized directly against CAMERA_ZOOM_DURATION_FRAMES (see
+// PillarBurst.tsx), which is deliberately built to keep easing well past
+// the last pillar's own hexagon finishing. The composition then holds on
+// the completed honeycomb for a while (2x HOLD_MIN_FRAMES).
+const DURATION_IN_FRAMES = CAMERA_ZOOM_DURATION_FRAMES + HOLD_MIN_FRAMES * 2;
 
 export const PillarBurstCompositions: React.FC = () => (
   <>
