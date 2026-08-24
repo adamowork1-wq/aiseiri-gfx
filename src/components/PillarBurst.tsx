@@ -40,6 +40,16 @@ type Props = {
   pillars: Pillar[];
   width: number;
   height: number;
+  /** Optional "spotlight" phase, off by default — every existing export
+   * (the transparent PillarBurst comp, the black-backed Preview) passes
+   * neither of these two and renders exactly as before. When both are
+   * set, starting at `highlightFromFrame` every pillar EXCEPT the one
+   * whose `key` matches `highlightKeepKey` (and Reason's own emblem/
+   * label) eases out to fully transparent over HIGHLIGHT_FADE_FRAMES —
+   * see PillarBurstCompositions.tsx for the composition that turns this
+   * on. */
+  highlightKeepKey?: string;
+  highlightFromFrame?: number;
 };
 
 const REASON_LABEL = "The Reason";
@@ -111,6 +121,14 @@ const CAMERA_END_SCALE = 0.68;
 // below). Exported so PillarBurstCompositions.tsx can size the
 // composition's total length around it without duplicating the number.
 export const CAMERA_ZOOM_DURATION_FRAMES = 100;
+
+// DECIDED — length of the optional highlight fade (see Props above): all
+// eleven other pillars plus Reason ease out together, simultaneously, not
+// staggered — "make all other emblems disappear" reads as one clean move,
+// not another burst-style reveal in reverse. Exported for the same reason
+// CAMERA_ZOOM_DURATION_FRAMES is: so PillarBurstCompositions.tsx can size
+// the highlight composition's total length without duplicating the number.
+export const HIGHLIGHT_FADE_FRAMES = 30;
 
 type Point = { x: number; y: number };
 
@@ -266,7 +284,14 @@ const PillarIcon: React.FC<{
  * in its natural case ("The Reason"), not forced uppercase — forcing
  * uppercase first would make the small-caps transform a no-op.
  */
-export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height }) => {
+export const PillarBurst: React.FC<Props> = ({
+  tokens,
+  pillars,
+  width,
+  height,
+  highlightKeepKey,
+  highlightFromFrame,
+}) => {
   const frame = useCurrentFrame();
   const ease = Easing.bezier(...tokens.EASE_STANDARD);
 
@@ -276,6 +301,14 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });
+
+  // 0 (untouched) while highlightKeepKey is unset — every existing export
+  // renders exactly as before. Once set, eases to 1 (fully faded) over
+  // HIGHLIGHT_FADE_FRAMES starting at highlightFromFrame (defaulted to 0
+  // only for the theoretical case that prop is left off — the composition
+  // that actually turns this on always passes both together).
+  const highlightFadeProgress =
+    highlightKeepKey === undefined ? 0 : animate(highlightFromFrame ?? 0, HIGHLIGHT_FADE_FRAMES, 0, 1);
 
   // The true frame centre — Reason's fixed world position, and the origin
   // every pillar's own position is an offset from (see
@@ -304,7 +337,11 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
   // watermark opacity over the same span and easing as the camera move —
   // "over the course of the clip" tied to the one long continuous move
   // everything else already rides, rather than its own separate timing.
-  const reasonEmblemOpacity = animate(0, CAMERA_ZOOM_DURATION_FRAMES, 1, REASON_EMBLEM_SETTLED_OPACITY);
+  // Reason isn't exempt from the highlight fade (per explicit instruction
+  // — "Reason disappears too"), so this multiplies straight through by
+  // (1 - highlightFadeProgress), same as every non-kept pillar.
+  const reasonEmblemOpacity =
+    animate(0, CAMERA_ZOOM_DURATION_FRAMES, 1, REASON_EMBLEM_SETTLED_OPACITY) * (1 - highlightFadeProgress);
 
   // The burst. Each pillar's emblem launches STAGGER_BURST_FRAMES after
   // the previous one, keyed to its index in `pillars`.
@@ -327,7 +364,12 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
     // that world-space position into what actually lands on screen.
     const x = centre.x + offset.x * emblemProgress;
     const y = centre.y + offset.y * emblemProgress;
-    return { pillar, emblemProgress, x, y };
+    // The pillar named by highlightKeepKey is exempt from the fade —
+    // every other pillar (highlightFadeProgress is 0 for all of them when
+    // the feature is off, so this is a no-op then) eases to fully
+    // transparent alongside Reason.
+    const highlightOpacity = pillar.key === highlightKeepKey ? 1 : 1 - highlightFadeProgress;
+    return { pillar, emblemProgress, highlightOpacity, x, y };
   });
 
   return (
@@ -392,7 +434,7 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
           />
         </div>
 
-        {items.map(({ pillar, emblemProgress, x, y }) => (
+        {items.map(({ pillar, emblemProgress, highlightOpacity, x, y }) => (
           <div
             key={pillar.key}
             style={{
@@ -401,7 +443,7 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
               top: y - ICON_BASE_SIZE / 2,
               width: ICON_BASE_SIZE,
               height: ICON_BASE_SIZE,
-              opacity: emblemProgress,
+              opacity: emblemProgress * highlightOpacity,
               transform: `scale(${emblemProgress})`,
               transformOrigin: "center",
               display: "flex",
@@ -442,6 +484,10 @@ export const PillarBurst: React.FC<Props> = ({ tokens, pillars, width, height })
             top: centre.y - REASON_FONT_SIZE,
             width: REASON_WIDTH,
             color: white(tokens.OPACITY_BOLD),
+            // Per explicit instruction ("Reason disappears too"), the
+            // label fades out with everything else in the highlight
+            // phase — 1 (untouched) whenever that phase is off.
+            opacity: 1 - highlightFadeProgress,
             ...textStyle,
           }}
         >

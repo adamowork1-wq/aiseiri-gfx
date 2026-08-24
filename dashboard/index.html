@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THE TOTAL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@300&family=IBM+Plex+Mono:wght@200;300&display=swap" rel="stylesheet">
+<style>
+:root{--gap:#FF7A18;--ghost:rgba(255,255,255,.12);--faint:rgba(255,255,255,.06);
+  --quiet:rgba(255,255,255,.38);--mid:rgba(255,255,255,.60)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#000;color:#fff}
+body{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-weight:200;font-size:12px;
+  line-height:1.7;-webkit-font-smoothing:antialiased;padding-bottom:14vh}
+.wrap{max-width:440px;margin:0 auto;padding:0 26px}
+.head{text-align:center;padding:9vh 0 7vh}
+.mark{font-family:"Grenze Gotisch",serif;font-weight:300;font-size:34px;line-height:1}
+.stamp{margin-top:13px;font-size:8px;letter-spacing:.36em;color:var(--quiet);text-transform:uppercase}
+section{padding:6vh 0 0}
+.lab{font-size:8px;letter-spacing:.36em;text-transform:uppercase;color:rgba(255,255,255,.26);margin-bottom:26px}
+.lab .i{color:rgba(255,255,255,.14);margin-right:13px}
+svg{display:block;width:100%;overflow:visible}
+.cap{margin-top:24px;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--quiet);line-height:2.1}
+.cap b{color:#fff;font-weight:300}.cap .a{color:var(--gap)}
+.row{display:flex;justify-content:space-between;gap:14px;color:var(--mid)}
+.row .v{color:#fff;white-space:nowrap}
+.big{font-size:15px;letter-spacing:.05em;line-height:1.6}
+.cue{color:var(--mid);margin-top:9px;padding-left:12px;border-left:.5px solid var(--ghost);font-size:11px}
+.note{color:var(--quiet);margin-top:10px}
+.hair{fill:none;stroke:#fff;stroke-width:.7}
+.gh{fill:none;stroke:var(--ghost);stroke-width:.7}
+.ft{fill:none;stroke:var(--faint);stroke-width:.7}
+.am{fill:none;stroke:var(--gap);stroke-width:.7}
+text{font-family:"IBM Plex Mono",monospace;font-weight:200}
+.n{fill:#fff;font-size:9px;letter-spacing:.05em}
+.nq{fill:var(--quiet);font-size:8px;letter-spacing:.18em}
+.na{fill:var(--gap);font-size:9px;letter-spacing:.05em}
+#err{padding:6vh 0;color:var(--quiet);line-height:2}
+#err b{color:#fff;font-weight:300}
+#pull{position:fixed;top:0;left:0;right:0;height:0;overflow:hidden;
+  display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:20}
+#pull .t{font-size:8px;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--quiet);padding-bottom:8px;white-space:nowrap}
+#sync{text-align:center;margin-top:7vh;font-size:8px;letter-spacing:.3em;
+  text-transform:uppercase;color:rgba(255,255,255,.30);cursor:pointer;
+  padding:14px;user-select:none;-webkit-user-select:none}
+#sync b{color:var(--quiet);font-weight:200}
+#sync.busy{color:rgba(255,255,255,.55)}
+.foot{text-align:center;padding-top:9vh;font-size:8px;letter-spacing:.3em;
+  text-transform:uppercase;color:rgba(255,255,255,.16);line-height:2.2}
+</style>
+</head>
+<body>
+<div id="pull"><span class="t"></span></div>
+<div class="wrap">
+  <div class="head"><div class="mark">Aiséirí</div>
+    <div class="stamp">The Total · Block I</div></div>
+  <div id="err" style="display:none"></div>
+  <div id="app"></div>
+  <div id="sync"></div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+const CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vR4aRDPzVTmZjBDIJu7fhS8c1qvLNdyZEz68ChhivlImCd2U9z7UOB_BzkH6WZaNBj-d8SNxJ9hIguF/pub?gid=1684511183&single=true&output=csv";
+const START=new Date("2026-08-10"), GATE_DAYS=66, THRESH=.85;
+const TARGETS={squat:215,bench:150,clean:135};
+const SCHED={1:["squat","jp","When work ends, I go to the gym at JP."],
+             3:["bench","jp","When work ends, I go to the gym at JP."],
+             5:["clean","dl","Kit to the station. Off at Radlett, drive to Bushey."]};
+const NS="http://www.w3.org/2000/svg";
+const el=(t,a={})=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n};
+const iso=d=>d.toISOString().slice(0,10);
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+
+function parseCSV(s){
+  const rows=[];let f="",r=[],q=false;
+  for(let i=0;i<s.length;i++){const c=s[i];
+    if(q){ if(c==='"'){ if(s[i+1]==='"'){f+='"';i++} else q=false } else f+=c }
+    else if(c==='"')q=true;
+    else if(c===','){r.push(f);f=""}
+    else if(c==='\n'){r.push(f);rows.push(r);r=[];f=""}
+    else if(c!=='\r')f+=c}
+  if(f||r.length){r.push(f);rows.push(r)}
+  return rows;
+}
+
+function build(rows){
+  const H=rows[0], ix={}; H.forEach((h,i)=>ix[h.trim()]=i);
+  const data=rows.slice(1).map(r=>({
+    date:(r[ix.date]||"").trim(), slot:(r[ix.slot]||"").trim(),
+    lift:(r[ix.lift]||"").trim(), w:parseFloat(r[ix.weight_kg]),
+    reps:parseFloat(r[ix.reps]), st:(r[ix.set_type]||"").trim()
+  })).filter(x=>x.lift&&x.st==="working"&&!isNaN(x.w)&&!isNaN(x.reps)&&x.w>0);
+  data.forEach(x=>x.e1=Math.round(x.w*(1+x.reps/30)*10)/10);
+
+  // full scheduled calendar across the gate
+  const cal=[];
+  for(let i=0;i<GATE_DAYS;i++){const d=addD(START,i);
+    if(SCHED[d.getDay()]) cal.push({date:iso(d),dow:d.getDay(),d});}
+  const loggedDates=new Set(data.filter(x=>x.slot!=="extra"&&x.date).map(x=>x.date));
+  cal.forEach(c=>c.done=loggedDates.has(c.date));
+
+  const total=cal.length, done=cal.filter(c=>c.done).length;
+  const required=Math.ceil(total*THRESH);
+  const today=new Date("2026-08-22");
+  const past=cal.filter(c=>c.d<=today);
+  const missed=past.filter(c=>!c.done).length;
+
+  // best per lift
+  const best={};
+  for(const k in TARGETS) best[k]=Math.max(0,...data.filter(x=>x.lift===k).map(x=>x.e1));
+
+  // per-session top working set, chronological
+  const series={};
+  for(const k in TARGETS){
+    const m={};
+    data.filter(x=>x.lift===k&&x.date).forEach(x=>{m[x.date]=Math.max(m[x.date]||0,x.e1)});
+    series[k]=Object.keys(m).sort().map(d=>({d,v:m[d]}));
+  }
+  // cumulative running best
+  const alld=[...new Set(data.filter(x=>x.date).map(x=>x.date))].sort();
+  const run={squat:0,bench:0,clean:0}, cum=[];
+  alld.forEach(d=>{
+    for(const k in TARGETS){const s=series[k].find(p=>p.d===d); if(s)run[k]=Math.max(run[k],s.v)}
+    cum.push({d,v:Math.round((run.squat+run.bench+run.clean)*10)/10});
+  });
+
+  // next session
+  const next=cal.find(c=>c.d>today)||cal[cal.length-1];
+  return {cal,total,done,required,missed,best,series,cum,next,today,
+          dayN:Math.floor((today-START)/864e5)+1};
+}
+
+function render(S){
+  const app=document.getElementById("app");app.innerHTML="";
+  const sec=(lab,inner)=>{const d=document.createElement("section");
+    d.innerHTML=`<div class="lab"><span class="i">${lab[0]}</span>${lab[1]}</div>`+inner;
+    app.appendChild(d);return d};
+  const T=k=>TARGETS[k];
+
+  /* 01 STATE */
+  const rate=Math.round(S.done/S.total*100);
+  const nd=S.next.d, dn=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][nd.getDay()];
+  const [lift,loc,cue]=SCHED[S.next.dow];
+  sec(["01","State"],
+    `<div class="row"><span>Day</span><span class="v">${S.dayN} of ${GATE_DAYS}</span></div>
+     <div class="row"><span>Sessions</span><span class="v">${S.done} of ${S.total}</span></div>
+     <div class="row"><span>Rate</span><span class="v">${rate}%</span></div>
+     <div class="row"><span>Missed</span><span class="v">${S.missed}</span></div>
+     <div class="note">${S.missed===0?"Nothing missed.":"Miss budget "+(S.total-S.required)+"."}</div>`);
+
+  /* 02 SNAPSHOT */
+  const d2=sec(["02","Snapshot"],`<svg viewBox="0 0 300 172"></svg>
+    <div class="cap">White — achieved &nbsp;·&nbsp; <span class="a">Amber — gap to target</span><br>
+    Total <b>${Math.round((S.best.squat+S.best.bench+S.best.clean)*10)/10}</b> of <b>500</b> kg</div>`);
+  const s2=d2.querySelector("svg");
+  ["squat","bench","clean"].forEach((k,i)=>{
+    const y=30+i*54, p=Math.min(1,S.best[k]/T(k)), xc=300*p;
+    const t1=el("text",{x:0,y:y-13,class:"nq"});t1.textContent=k.toUpperCase();s2.appendChild(t1);
+    s2.appendChild(el("line",{x1:0,y1:y,x2:xc,y2:y,class:"hair"}));
+    s2.appendChild(el("line",{x1:xc,y1:y,x2:300,y2:y,class:"am"}));
+    s2.appendChild(el("line",{x1:xc,y1:y-5,x2:xc,y2:y+5,class:"hair"}));
+    s2.appendChild(el("line",{x1:300,y1:y-3.5,x2:300,y2:y+3.5,class:"am"}));
+    const a=el("text",{x:0,y:y+17,class:"n"});a.textContent=S.best[k].toFixed(1)+" kg";s2.appendChild(a);
+    const b=el("text",{x:300,y:y+17,class:"na","text-anchor":"end"});b.textContent=T(k)+" kg";s2.appendChild(b);
+  });
+
+  /* 03 THE FIELD */
+  const d3=sec(["03","The Field · 66 days"],`<svg viewBox="0 0 300 260"></svg>
+    <div class="cap">Filled — logged &nbsp;·&nbsp; outline — missed &nbsp;·&nbsp; faint — ahead<br>
+    <b>${S.done}</b> of ${S.total} &nbsp;·&nbsp; <span class="a">${S.required} required at 85%</span></div>`);
+  const s3=d3.querySelector("svg"), cw=300/7;
+  for(let i=0;i<GATE_DAYS;i++){
+    const d=addD(START,i), r=Math.floor(i/7), c=d.getDay()===0?6:d.getDay()-1;
+    const cx=c*cw+cw/2, cy=12+r*24, hit=S.cal.find(x=>x.date===iso(d));
+    if(!hit){s3.appendChild(el("circle",{cx,cy,r:.8,fill:"rgba(255,255,255,.14)"}));continue}
+    const a={x:cx-4.5,y:cy-4.5,width:9,height:9};
+    if(hit.done) s3.appendChild(el("rect",{...a,fill:"#fff"}));
+    else s3.appendChild(el("rect",{...a,class:d<=S.today?"gh":"ft"}));
+  }
+  const ti=Math.floor((S.today-START)/864e5), ty=12+Math.floor(ti/7)*24+14;
+  s3.appendChild(el("line",{x1:0,y1:ty,x2:300,y2:ty,class:"gh","stroke-dasharray":"1 4"}));
+  const tl=el("text",{x:300,y:ty-5,class:"nq","text-anchor":"end"});
+  tl.textContent="TODAY · DAY "+S.dayN;s3.appendChild(tl);
+
+  /* 04 LONGITUDINAL */
+  const d4=sec(["04","Longitudinal"],`<svg viewBox="0 0 300 250"></svg>
+    <div class="cap">Each band spans block start to target<br>Space above the line is the gap remaining</div>`);
+  const s4=d4.querySelector("svg"), bh=42, gy=32;
+  ["squat","bench","clean"].forEach((k,i)=>{
+    const top=14+i*(bh+gy), pts=S.series[k];
+    const lo=pts.length?pts[0].v:0, hi=T(k);
+    const Y=v=>top+bh-((v-lo)/(hi-lo))*bh;
+    const X=j=>pts.length<2?0:(j/(pts.length-1))*300;
+    s4.appendChild(el("line",{x1:0,y1:top,x2:300,y2:top,class:"am","stroke-dasharray":"2 6"}));
+    const nl=el("text",{x:0,y:top-7,class:"nq"});nl.textContent=k.toUpperCase();s4.appendChild(nl);
+    const tt=el("text",{x:300,y:top-7,class:"na","text-anchor":"end"});tt.textContent=hi+" KG";s4.appendChild(tt);
+    s4.appendChild(el("line",{x1:0,y1:top+bh,x2:300,y2:top+bh,class:"gh"}));
+    if(pts.length>1){
+      s4.appendChild(el("path",{d:pts.map((p,j)=>`${j?"L":"M"}${X(j).toFixed(1)} ${Y(p.v).toFixed(1)}`).join(" "),class:"hair"}));
+    }
+    pts.forEach((p,j)=>s4.appendChild(el("circle",{cx:X(j),cy:Y(p.v),r:1.3,fill:"#fff"})));
+    const cv=el("text",{x:300,y:Y(pts.length?pts[pts.length-1].v:lo)+14,class:"n","text-anchor":"end"});
+    cv.textContent=(pts.length?pts[pts.length-1].v:0).toFixed(1)+" kg";s4.appendChild(cv);
+  });
+
+  /* 05 CUMULATIVE */
+  const cur=S.cum.length?S.cum[S.cum.length-1].v:0;
+  const d5=sec(["05","Cumulative"],`<svg viewBox="0 0 300 172"></svg>
+    <div class="cap">Sum of three lifts &nbsp;·&nbsp; <span class="a">${(500-cur).toFixed(1)} kg remaining</span></div>`);
+  const s5=d5.querySelector("svg"), H=128, lo=Math.min(...S.cum.map(p=>p.v))-20, hi=510;
+  const Y5=v=>H-((v-lo)/(hi-lo))*H, X5=j=>S.cum.length<2?0:(j/(S.cum.length-1))*300;
+  s5.appendChild(el("line",{x1:0,y1:Y5(500),x2:300,y2:Y5(500),class:"am","stroke-dasharray":"2 6"}));
+  const t5=el("text",{x:300,y:Y5(500)-7,class:"na","text-anchor":"end"});t5.textContent="500 KG";s5.appendChild(t5);
+  if(S.cum.length>1) s5.appendChild(el("path",{d:S.cum.map((p,j)=>`${j?"L":"M"}${X5(j).toFixed(1)} ${Y5(p.v).toFixed(1)}`).join(" "),class:"hair"}));
+  S.cum.forEach((p,j)=>s5.appendChild(el("circle",{cx:X5(j),cy:Y5(p.v),r:1.3,fill:"#fff"})));
+  s5.appendChild(el("line",{x1:300,y1:Y5(cur),x2:300,y2:Y5(500),class:"am"}));
+  const cl=el("text",{x:288,y:Y5(cur)-8,class:"n","text-anchor":"end"});cl.textContent=cur.toFixed(1);s5.appendChild(cl);
+
+  /* 06 NEXT */
+  sec(["06","Next"],
+    `<div class="big">${dn.toUpperCase()} ${nd.getDate()} ${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][nd.getMonth()]} · ${lift.toUpperCase()} · ${loc.toUpperCase()}</div>
+     <div class="cue">${cue}</div>`);
+
+  document.getElementById("foot").innerHTML="Live from the ledger";
+}
+
+/* ── sync ─────────────────────────────────────────────────── */
+let lastSync=null, busy=false;
+const syncEl=()=>document.getElementById("sync");
+
+function stamp(){
+  if(!lastSync){syncEl().innerHTML="";return}
+  const m=Math.floor((Date.now()-lastSync)/60000);
+  const ago = m<1?"just now" : m===1?"1 min ago" : m+" min ago";
+  syncEl().innerHTML=`Synced <b>${ago}</b> · tap to refresh`;
+}
+
+function load(){
+  if(busy)return; busy=true;
+  syncEl().classList.add("busy");
+  if(lastSync) syncEl().innerHTML="Syncing…";
+  /* cache-bust the browser; Google still caches its side for ~5 min */
+  return fetch(CSV+"&_="+Date.now(),{cache:"no-store"})
+    .then(r=>{if(!r.ok)throw new Error(r.status);return r.text()})
+    .then(t=>{
+      document.getElementById("err").style.display="none";
+      render(build(parseCSV(t)));
+      lastSync=Date.now(); stamp();
+    })
+    .catch(e=>{
+      const el=document.getElementById("err");
+      el.style.display="block";
+      el.innerHTML=`<b>Could not reach the ledger.</b><br>${e.message}<br><br>
+        If this says "Failed to fetch", the browser blocked the request.
+        Opening the file from disk does that — it needs to be served over http.`;
+      syncEl().innerHTML="Sync failed · tap to retry";
+    })
+    .finally(()=>{busy=false;syncEl().classList.remove("busy")});
+}
+
+document.addEventListener("click",e=>{if(e.target.closest("#sync"))load()});
+setInterval(stamp,30000);
+
+/* reopening the home-screen app resumes a suspended page — refetch */
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden && lastSync && Date.now()-lastSync>60000) load();
+});
+
+/* ── pull to refresh ──────────────────────────────────────── */
+(()=>{
+  const bar=document.getElementById("pull"), txt=bar.querySelector(".t");
+  const MAX=90, TRIP=64;
+  let y0=null, dy=0;
+  addEventListener("touchstart",e=>{
+    y0 = (window.scrollY<=0 && e.touches.length===1) ? e.touches[0].clientY : null; dy=0;
+  },{passive:true});
+  addEventListener("touchmove",e=>{
+    if(y0===null)return;
+    dy=Math.max(0,Math.min(MAX,(e.touches[0].clientY-y0)*0.55));
+    bar.style.height=dy+"px";
+    txt.textContent = dy>=TRIP ? "Release to refresh" : "Pull to refresh";
+  },{passive:true});
+  addEventListener("touchend",()=>{
+    if(y0!==null && dy>=TRIP) load();
+    bar.style.height="0px"; y0=null; dy=0;
+  },{passive:true});
+})();
+
+load();
+</script>
+</body>
+</html>

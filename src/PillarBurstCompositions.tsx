@@ -1,5 +1,5 @@
 import { AbsoluteFill, Composition } from "remotion";
-import { PillarBurst, CAMERA_ZOOM_DURATION_FRAMES, type Pillar } from "./components/PillarBurst";
+import { PillarBurst, CAMERA_ZOOM_DURATION_FRAMES, HIGHLIGHT_FADE_FRAMES, type Pillar } from "./components/PillarBurst";
 import * as TokensB from "./tokens.b";
 import { COLOR_BLACK, HOLD_MIN_FRAMES } from "./tokens.shared";
 import pillarsData from "../data/pillars.json";
@@ -23,6 +23,16 @@ const FPS = 30;
 // the last pillar's own hexagon finishing. The composition then holds on
 // the completed honeycomb for a while (2x HOLD_MIN_FRAMES).
 const DURATION_IN_FRAMES = CAMERA_ZOOM_DURATION_FRAMES + HOLD_MIN_FRAMES * 2;
+
+// "Take the pillar honeycomb video, from the last frame make all other
+// emblems disappear besides the one associated with The Total." Starts
+// exactly where the base composition ends (DURATION_IN_FRAMES) — the
+// spotlight reads as a continuation of that video, not a separate clip —
+// fades over HIGHLIGHT_FADE_FRAMES, then holds on The Total alone for a
+// further HOLD_MIN_FRAMES so the result doesn't just cut off the instant
+// the fade completes.
+const HIGHLIGHT_KEEP_KEY = "the-total";
+const HIGHLIGHT_DURATION_IN_FRAMES = DURATION_IN_FRAMES + HIGHLIGHT_FADE_FRAMES + HOLD_MIN_FRAMES;
 
 export const PillarBurstCompositions: React.FC = () => (
   <>
@@ -49,6 +59,47 @@ export const PillarBurstCompositions: React.FC = () => (
         </AbsoluteFill>
       )}
       durationInFrames={DURATION_IN_FRAMES}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+
+    {/* Transparent — same base video, continuing past DURATION_IN_FRAMES
+        into the highlight fade (see HIGHLIGHT_DURATION_IN_FRAMES above). */}
+    <Composition
+      id="PillarBurst-TotalHighlight"
+      component={() => (
+        <PillarBurst
+          tokens={TokensB}
+          pillars={pillars}
+          width={WIDTH}
+          height={HEIGHT}
+          highlightKeepKey={HIGHLIGHT_KEEP_KEY}
+          highlightFromFrame={DURATION_IN_FRAMES}
+        />
+      )}
+      durationInFrames={HIGHLIGHT_DURATION_IN_FRAMES}
+      fps={FPS}
+      width={WIDTH}
+      height={HEIGHT}
+    />
+
+    {/* Black-backed preview of the above. */}
+    <Composition
+      id="PillarBurst-TotalHighlight-Preview"
+      component={() => (
+        <AbsoluteFill style={{ backgroundColor: COLOR_BLACK }}>
+          <PillarBurst
+            tokens={TokensB}
+            pillars={pillars}
+            width={WIDTH}
+            height={HEIGHT}
+            highlightKeepKey={HIGHLIGHT_KEEP_KEY}
+            highlightFromFrame={DURATION_IN_FRAMES}
+          />
+        </AbsoluteFill>
+      )}
+      durationInFrames={HIGHLIGHT_DURATION_IN_FRAMES}
       fps={FPS}
       width={WIDTH}
       height={HEIGHT}

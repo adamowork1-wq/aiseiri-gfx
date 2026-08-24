@@ -1,5 +1,6 @@
-import { AbsoluteFill, Composition } from "remotion";
+import { AbsoluteFill, CalculateMetadataFunction, Composition, staticFile } from "remotion";
 import { BarChart } from "./components/BarChart";
+import type { LiftsData } from "./components/BarChart";
 import * as TokensA from "./tokens.a";
 import * as TokensB from "./tokens.b";
 import * as TokensC from "./tokens.c";
@@ -11,7 +12,6 @@ import {
   DURATION_LINE_DRAW_FRAMES,
   HOLD_MIN_FRAMES,
 } from "./tokens.shared";
-import lifts from "../data/lifts.json";
 
 const WIDTH = 1920;
 const HEIGHT = 1080;
@@ -30,6 +30,44 @@ const DURATION_IN_FRAMES =
   DURATION_LINE_DRAW_FRAMES +
   HOLD_MIN_FRAMES;
 
+// Shape of the `lifts` object in public/data.json (see scripts/sync.mjs).
+type LiftsJson = Record<
+  "squat" | "bench" | "clean",
+  { current: number; target: number; gap: number }
+>;
+
+// BarChart's own data shape is {from, to} per lift — current/target from
+// the synced ledger map straight onto that.
+const toLiftsData = (lifts: LiftsJson): LiftsData => ({
+  bench: { from: lifts.bench.current, to: lifts.bench.target },
+  squat: { from: lifts.squat.current, to: lifts.squat.target },
+  clean: { from: lifts.clean.current, to: lifts.clean.target },
+});
+
+type Props = {
+  dataUrl: string;
+  data: LiftsData;
+};
+
+// Placeholder only — calculateMetadata's fetch below replaces this with the
+// real values from public/data.json before every render (Studio and CLI
+// alike). Needed because CalculateMetadataFunction returns the same props
+// shape it receives, so `data` must exist on defaultProps too.
+const EMPTY_LIFTS: LiftsData = {
+  bench: { from: 0, to: 0 },
+  squat: { from: 0, to: 0 },
+  clean: { from: 0, to: 0 },
+};
+
+const calculateMetadata: CalculateMetadataFunction<Props> = async ({
+  props,
+  abortSignal,
+}) => {
+  const res = await fetch(props.dataUrl, { signal: abortSignal });
+  const json = await res.json();
+  return { props: { ...props, data: toLiftsData(json.lifts) } };
+};
+
 /**
  * Three full-size renders of the same bar chart — one per token variant
  * (A/B/C from src/tokens.a.ts / .b.ts / .c.ts) — so the design differences
@@ -40,10 +78,10 @@ export const BarChartCompositions: React.FC = () => (
   <>
     <Composition
       id="BarChartA"
-      component={() => (
+      component={({ data }: Props) => (
         <BarChart
           tokens={TokensA}
-          data={lifts}
+          data={data}
           width={WIDTH}
           height={HEIGHT}
           variantLabel="A"
@@ -53,13 +91,15 @@ export const BarChartCompositions: React.FC = () => (
       fps={FPS}
       width={WIDTH}
       height={HEIGHT}
+      defaultProps={{ dataUrl: staticFile("data.json"), data: EMPTY_LIFTS }}
+      calculateMetadata={calculateMetadata}
     />
     <Composition
       id="BarChartB"
-      component={() => (
+      component={({ data }: Props) => (
         <BarChart
           tokens={TokensB}
-          data={lifts}
+          data={data}
           width={WIDTH}
           height={HEIGHT}
           variantLabel="B"
@@ -69,13 +109,15 @@ export const BarChartCompositions: React.FC = () => (
       fps={FPS}
       width={WIDTH}
       height={HEIGHT}
+      defaultProps={{ dataUrl: staticFile("data.json"), data: EMPTY_LIFTS }}
+      calculateMetadata={calculateMetadata}
     />
     <Composition
       id="BarChartC"
-      component={() => (
+      component={({ data }: Props) => (
         <BarChart
           tokens={TokensC}
-          data={lifts}
+          data={data}
           width={WIDTH}
           height={HEIGHT}
           variantLabel="C"
@@ -85,6 +127,8 @@ export const BarChartCompositions: React.FC = () => (
       fps={FPS}
       width={WIDTH}
       height={HEIGHT}
+      defaultProps={{ dataUrl: staticFile("data.json"), data: EMPTY_LIFTS }}
+      calculateMetadata={calculateMetadata}
     />
 
     {/* BarChart itself is transparent by design (composited over footage —
@@ -94,11 +138,11 @@ export const BarChartCompositions: React.FC = () => (
         preview layer, not inside the reusable component. */}
     <Composition
       id="BarChartB-Preview"
-      component={() => (
+      component={({ data }: Props) => (
         <AbsoluteFill style={{ backgroundColor: COLOR_BLACK }}>
           <BarChart
             tokens={TokensB}
-            data={lifts}
+            data={data}
             width={WIDTH}
             height={HEIGHT}
             variantLabel="B"
@@ -109,6 +153,8 @@ export const BarChartCompositions: React.FC = () => (
       fps={FPS}
       width={WIDTH}
       height={HEIGHT}
+      defaultProps={{ dataUrl: staticFile("data.json"), data: EMPTY_LIFTS }}
+      calculateMetadata={calculateMetadata}
     />
   </>
 );
