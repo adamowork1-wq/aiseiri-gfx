@@ -141,19 +141,24 @@ function render(S){
     app.appendChild(d);return d};
   const T=k=>TARGETS[k];
 
-  /* 01 STATE */
-  const rate=Math.round(S.done/S.total*100);
+  /* 01 NEXT */
   const nd=S.next.d, dn=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][nd.getDay()];
   const [lift,loc,cue]=SCHED[S.next.dow];
-  sec(["01","State"],
+  sec(["01","Next"],
+    `<div class="big">${dn.toUpperCase()} ${nd.getDate()} ${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][nd.getMonth()]} · ${lift.toUpperCase()} · ${loc.toUpperCase()}</div>
+     <div class="cue">${cue}</div>`);
+
+  /* 02 STATE */
+  const rate=Math.round(S.done/S.total*100);
+  sec(["02","State"],
     `<div class="row"><span>Day</span><span class="v">${S.dayN} of ${GATE_DAYS}</span></div>
      <div class="row"><span>Sessions</span><span class="v">${S.done} of ${S.total}</span></div>
      <div class="row"><span>Rate</span><span class="v">${rate}%</span></div>
      <div class="row"><span>Missed</span><span class="v">${S.missed}</span></div>
      <div class="note">${S.missed===0?"Nothing missed.":"Miss budget "+(S.total-S.required)+"."}</div>`);
 
-  /* 02 SNAPSHOT */
-  const d2=sec(["02","Snapshot"],`<svg viewBox="0 0 300 172"></svg>
+  /* 03 SNAPSHOT */
+  const d2=sec(["03","Snapshot"],`<svg viewBox="0 0 300 172"></svg>
     <div class="cap">White — achieved &nbsp;·&nbsp; <span class="a">Amber — gap to target</span><br>
     Total <b>${Math.round((S.best.squat+S.best.bench+S.best.clean)*10)/10}</b> of <b>500</b> kg</div>`);
   const s2=d2.querySelector("svg");
@@ -168,8 +173,8 @@ function render(S){
     const b=el("text",{x:300,y:y+17,class:"na","text-anchor":"end"});b.textContent=T(k)+" kg";s2.appendChild(b);
   });
 
-  /* 03 THE FIELD */
-  const d3=sec(["03","The Field · 66 days"],`<svg viewBox="0 0 300 260"></svg>
+  /* 04 THE FIELD */
+  const d3=sec(["04","The Field · 66 days"],`<svg viewBox="0 0 300 260"></svg>
     <div class="cap">Filled — logged &nbsp;·&nbsp; outline — missed &nbsp;·&nbsp; faint — ahead<br>
     <b>${S.done}</b> of ${S.total} &nbsp;·&nbsp; <span class="a">${S.required} required at 85%</span></div>`);
   const s3=d3.querySelector("svg"), cw=300/7;
@@ -186,8 +191,8 @@ function render(S){
   const tl=el("text",{x:300,y:ty-5,class:"nq","text-anchor":"end"});
   tl.textContent="TODAY · DAY "+S.dayN;s3.appendChild(tl);
 
-  /* 04 LONGITUDINAL */
-  const d4=sec(["04","Longitudinal"],`<svg viewBox="0 0 300 250"></svg>
+  /* 05 LONGITUDINAL */
+  const d4=sec(["05","Longitudinal"],`<svg viewBox="0 0 300 250"></svg>
     <div class="cap">Each band spans block start to target<br>Space above the line is the gap remaining</div>`);
   const s4=d4.querySelector("svg"), bh=42, gy=32;
   ["squat","bench","clean"].forEach((k,i)=>{
@@ -207,9 +212,9 @@ function render(S){
     cv.textContent=(pts.length?pts[pts.length-1].v:0).toFixed(1)+" kg";s4.appendChild(cv);
   });
 
-  /* 05 CUMULATIVE */
+  /* 06 CUMULATIVE */
   const cur=S.cum.length?S.cum[S.cum.length-1].v:0;
-  const d5=sec(["05","Cumulative"],`<svg viewBox="0 0 300 172"></svg>
+  const d5=sec(["06","Cumulative"],`<svg viewBox="0 0 300 172"></svg>
     <div class="cap">Sum of three lifts &nbsp;·&nbsp; <span class="a">${(500-cur).toFixed(1)} kg remaining</span></div>`);
   const s5=d5.querySelector("svg"), H=128, lo=Math.min(...S.cum.map(p=>p.v))-20, hi=510;
   const Y5=v=>H-((v-lo)/(hi-lo))*H, X5=j=>S.cum.length<2?0:(j/(S.cum.length-1))*300;
@@ -219,11 +224,6 @@ function render(S){
   S.cum.forEach((p,j)=>s5.appendChild(el("circle",{cx:X5(j),cy:Y5(p.v),r:1.3,fill:"#fff"})));
   s5.appendChild(el("line",{x1:300,y1:Y5(cur),x2:300,y2:Y5(500),class:"am"}));
   const cl=el("text",{x:288,y:Y5(cur)-8,class:"n","text-anchor":"end"});cl.textContent=cur.toFixed(1);s5.appendChild(cl);
-
-  /* 06 NEXT */
-  sec(["06","Next"],
-    `<div class="big">${dn.toUpperCase()} ${nd.getDate()} ${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][nd.getMonth()]} · ${lift.toUpperCase()} · ${loc.toUpperCase()}</div>
-     <div class="cue">${cue}</div>`);
 
   document.getElementById("foot").innerHTML="Live from the ledger";
 }
