@@ -1,6 +1,8 @@
 import React from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { loadFont } from "@remotion/google-fonts/SpaceGrotesk";
+import { z } from "zod";
+import { zColor } from "@remotion/zod-types";
 import * as tokens from "../tokens.shared";
 
 // Same font as BarChart.tsx (Space Grotesk, matching FONT_FAMILY_PRIMARY)
@@ -32,35 +34,48 @@ const FONT_FILL_RATIO = 0.34;
 const FILL_OPACITY = tokens.OPACITY_HAIRLINE;
 const OUTLINE_OPACITY = tokens.OPACITY_LABEL;
 
-export type MarqueeProps = {
-  /** The phrase repeated across every row. */
-  text: string;
-  /** How many horizontal rows fill the frame. */
-  rows?: number;
-  /** Scroll speed, in pixels per second — a literal, constant velocity,
-   * not an eased move. */
-  speed?: number;
-  /** Type colour: solid fill on solid rows, outline colour on outline
-   * rows. */
-  fg?: string;
-  /** Frame background. Left unset, the frame is transparent — the
-   * standalone-render convention every beat in this library follows. */
-  bg?: string;
-  /** Alternate rows between solid fill and outline-only
-   * (-webkit-text-stroke) type. false = every row solid. */
-  strokeAlternate?: boolean;
-  /** The end value of the zoom — the beat always starts at 1.0 and
-   * eases to scaleTo across its own duration (calculateMetadata's
-   * durationInFrames). scaleTo: 1 means no zoom. */
-  scaleTo?: number;
-  /** Row index (0-based) to render in amber instead of fg — this beat's
-   * one deliberate accent, per AISEIRI.md's "non-data beats: amber is
-   * the accent colour, used sparingly." Renders solid (never outline)
-   * and at full opacity regardless of that row's own fill/outline
-   * parity, so it reads as the one deliberate colour move rather than
-   * blending into the surrounding structure. Default: none. */
-  accentRow?: number;
-};
+// Schema (not a plain TS type) so every field is editable live from the
+// Remotion Studio props panel — see AISEIRI.md's "fully editable from the
+// props panel" rule. Each .describe() carries the field's documentation;
+// it doubles as the tooltip Studio shows next to that control.
+export const marqueeSchema = z.object({
+  text: z.string().describe("The phrase repeated across every row."),
+  rows: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("How many horizontal rows fill the frame."),
+  speed: z
+    .number()
+    .positive()
+    .optional()
+    .describe("Scroll speed, in pixels per second — a literal, constant velocity, not an eased move."),
+  fg: zColor().optional().describe("Type colour: solid fill on solid rows, outline colour on outline rows."),
+  bg: zColor()
+    .optional()
+    .describe("Frame background. Left unset, the frame is transparent — the standalone-render convention every beat in this library follows."),
+  strokeAlternate: z
+    .boolean()
+    .optional()
+    .describe("Alternate rows between solid fill and outline-only (-webkit-text-stroke) type. false = every row solid."),
+  scaleTo: z
+    .number()
+    .optional()
+    .describe(
+      "The end value of the zoom — the beat always starts at 1.0 and eases to scaleTo across its own duration (calculateMetadata's durationInFrames). scaleTo: 1 means no zoom.",
+    ),
+  accentRow: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe(
+      "Row index (0-based) to render in amber instead of fg — this beat's one deliberate accent, per AISEIRI.md's \"non-data beats: amber is the accent colour, used sparingly.\" Renders solid (never outline) and at full opacity regardless of that row's own fill/outline parity. Default: none.",
+    ),
+});
+
+export type MarqueeProps = z.infer<typeof marqueeSchema>;
 
 // Deterministic, synchronous text-width measurement via a throwaway
 // canvas 2D context. Remotion always renders inside a real Chromium

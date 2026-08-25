@@ -1,5 +1,5 @@
 import { Composition } from "remotion";
-import { Marquee } from "./components/Marquee";
+import { Marquee, marqueeSchema } from "./components/Marquee";
 import { COLOR_BLACK, COLOR_WHITE } from "./tokens.shared";
 
 // Portrait, matching the pillar burst — social-first, unlike the bar
@@ -25,6 +25,7 @@ export const MarqueeCompositions: React.FC = () => (
     <Composition
       id="Marquee-Sparse"
       component={Marquee}
+      schema={marqueeSchema}
       durationInFrames={DURATION_IN_FRAMES}
       fps={FPS}
       width={WIDTH}
@@ -37,6 +38,7 @@ export const MarqueeCompositions: React.FC = () => (
     <Composition
       id="Marquee-AmberAccent"
       component={Marquee}
+      schema={marqueeSchema}
       durationInFrames={DURATION_IN_FRAMES}
       fps={FPS}
       width={WIDTH}
@@ -49,6 +51,7 @@ export const MarqueeCompositions: React.FC = () => (
     <Composition
       id="Marquee-Dense"
       component={Marquee}
+      schema={marqueeSchema}
       durationInFrames={DURATION_IN_FRAMES}
       fps={FPS}
       width={WIDTH}
