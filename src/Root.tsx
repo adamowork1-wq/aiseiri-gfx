@@ -5,6 +5,7 @@ import { PillarBurstCompositions } from "./PillarBurstCompositions";
 import { MarqueeCompositions } from "./MarqueeCompositions";
 import { TypewriterCompositions } from "./TypewriterCompositions";
 import { DiagonalWipeCompositions } from "./DiagonalWipeCompositions";
+import { SlamCompositions } from "./SlamCompositions";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -15,6 +16,7 @@ export const RemotionRoot: React.FC = () => {
       <MarqueeCompositions />
       <TypewriterCompositions />
       <DiagonalWipeCompositions />
+      <SlamCompositions />
     </>
   );
 };

@@ -180,6 +180,30 @@ export const LETTER_SPACING_HERO_EM = 0;
  * refs are going for. */
 export const FONT_FEATURE_TABULAR_NUMS = '"tnum" 1';
 
+/** DECIDED — no reference gives a multi-step headline scale (the gauge
+ * references only ever needed the one hero size above); this is a fresh
+ * four-step scale for beats that need one (the Slam beat's `size` prop
+ * is the first). Like every other pixel value in this file, authored
+ * against REFERENCE_HEIGHT_PX (1080p) — scale by
+ * actualHeight / REFERENCE_HEIGHT_PX at other resolutions. Deliberately
+ * its own scale rather than reusing FONT_SIZE_HERO_PX: hero type sits at
+ * a fixed 96px regardless of context, where this scale exists precisely
+ * so a beat's type size is an open choice. */
+export const FONT_SIZE_SM_PX = 72;
+export const FONT_SIZE_MD_PX = 112;
+export const FONT_SIZE_LG_PX = 160;
+export const FONT_SIZE_XL_PX = 220;
+
+/** DECIDED — wide tracking for uppercase type, promoted here after
+ * Marquee.tsx and Typewriter.tsx each independently landed on the same
+ * 0.08em value (itself matching tokens.b.ts's LETTER_SPACING_LABEL_EM,
+ * the "balanced" variant) for their own uppercase, wide-tracked type.
+ * A third beat needing the identical number is what justifies making it
+ * a real shared token instead of a third local duplicate; the two
+ * existing beats still carry their own local copies unless a separate
+ * pass migrates them. */
+export const LETTER_SPACING_WIDE_EM = 0.08;
+
 // ---------------------------------------------------------------------------
 // Glow
 // ---------------------------------------------------------------------------
