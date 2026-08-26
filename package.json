@@ -29,7 +29,9 @@
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc",
-    "sync": "node scripts/sync.mjs"
+    "sync": "node scripts/sync.mjs",
+    "render": "node scripts/render.mjs alpha",
+    "render:preview": "node scripts/render.mjs preview"
   },
   "sideEffects": [
     "*.css"
