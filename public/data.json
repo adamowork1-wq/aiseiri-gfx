@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-23T17:06:17.325Z",
+  "generatedAt": "2026-08-27T19:42:12.505Z",
   "block": {
     "start": "2026-08-10",
     "gateDays": 66,
@@ -8,16 +8,16 @@
   },
   "adherence": {
     "scheduled": 29,
-    "logged": 6,
+    "logged": 8,
     "required": 25,
     "missBudget": 4,
-    "rate": 21
+    "rate": 28
   },
   "lifts": {
     "squat": {
-      "current": 186.7,
+      "current": 192.5,
       "target": 215,
-      "gap": 28.3
+      "gap": 22.5
     },
     "bench": {
       "current": 130.3,
@@ -31,9 +31,9 @@
     }
   },
   "total": {
-    "current": 421.5,
+    "current": 427.3,
     "target": 500,
-    "gap": 78.5
+    "gap": 72.7
   },
   "series": {
     "squat": [
@@ -44,6 +44,10 @@
       {
         "date": "2026-08-17",
         "value": 186.7
+      },
+      {
+        "date": "2026-08-24",
+        "value": 192.5
       }
     ],
     "bench": [
@@ -61,6 +65,10 @@
       },
       {
         "date": "2026-08-22",
+        "value": 130.3
+      },
+      {
+        "date": "2026-08-26",
         "value": 130.3
       }
     ],
@@ -107,6 +115,14 @@
     {
       "date": "2026-08-22",
       "value": 421.5
+    },
+    {
+      "date": "2026-08-24",
+      "value": 427.3
+    },
+    {
+      "date": "2026-08-26",
+      "value": 427.3
     }
   ],
   "calendar": [
@@ -157,14 +173,14 @@
       "day": 15,
       "lift": "squat",
       "location": "jp",
-      "logged": false
+      "logged": true
     },
     {
       "date": "2026-08-26",
       "day": 17,
       "lift": "bench",
       "location": "jp",
-      "logged": false
+      "logged": true
     },
     {
       "date": "2026-08-28",

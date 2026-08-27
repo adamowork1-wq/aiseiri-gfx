@@ -2,7 +2,7 @@
 
 ## Project
 
-Remotion motion-graphics library for Aiséirí. Aiséirí is the only visual language. Pure black `#000000`, hairline white strokes, amber `#FF7A18`. Vast negative space, extreme restraint, nothing decorative. Existing: BarChart, PillarBurst, Marquee, Typewriter, DiagonalWipe, Slam, DrawOn. Tokens in `src/tokens.shared.ts`.
+Remotion motion-graphics library for Aiséirí. Aiséirí is the only visual language. Pure black `#000000`, hairline white strokes, amber `#FF7A18`. Vast negative space, extreme restraint, nothing decorative. Existing: BarChart, PillarBurst, Marquee, Typewriter, DiagonalWipe, Slam, DrawOn, Odometer. Tokens in `src/tokens.shared.ts`.
 
 Amber has two meanings depending on the beat:
 
@@ -36,4 +36,4 @@ The beat library keeps its planned structure, but every beat renders in this lan
 - **Transition**: diagonal-wipe (built) · colour-cut · zoom-through
 - **Line art**: draw-on (built) · wireframe-globe · isometric-extrude
 - **Asset**: cutout-reveal · tiled-pattern
-- **Data**: bar-chart (built) · field-grid · progression-line · odometer
+- **Data**: bar-chart (built) · field-grid · progression-line · odometer (built)

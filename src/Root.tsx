@@ -7,6 +7,7 @@ import { TypewriterCompositions } from "./TypewriterCompositions";
 import { DiagonalWipeCompositions } from "./DiagonalWipeCompositions";
 import { SlamCompositions } from "./SlamCompositions";
 import { DrawOnCompositions } from "./DrawOnCompositions";
+import { OdometerCompositions } from "./OdometerCompositions";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -19,6 +20,7 @@ export const RemotionRoot: React.FC = () => {
       <DiagonalWipeCompositions />
       <SlamCompositions />
       <DrawOnCompositions />
+      <OdometerCompositions />
     </>
   );
 };

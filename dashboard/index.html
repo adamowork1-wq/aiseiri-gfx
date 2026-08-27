@@ -105,7 +105,7 @@ function build(rows){
 
   const total=cal.length, done=cal.filter(c=>c.done).length;
   const required=Math.ceil(total*THRESH);
-  const today=new Date("2026-08-22");
+  const today=new Date(); today.setHours(0,0,0,0);
   const past=cal.filter(c=>c.d<=today);
   const missed=past.filter(c=>!c.done).length;
 
