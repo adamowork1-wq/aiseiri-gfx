@@ -27,10 +27,12 @@ const calculateMetadata: CalculateMetadataFunction<SlamProps> = ({ props }) => {
 };
 
 /**
- * Four presets covering the beat's range: a single xl line, three lines
- * staggering in, two lines with the second in amber, and one line with a
- * 12px impact displacement on landing. Demo copy continues the 66-day
- * gate thread from the Typewriter presets.
+ * Five presets covering the beat's range: a single xl line, three lines
+ * staggering in, two lines with the second in amber (via the deprecated
+ * single-index accentLine, to prove that alias still works), four lines
+ * with two of them accented (via accentLines), and one line with a 12px
+ * impact displacement on landing. Demo copy continues the 66-day gate
+ * thread from the Typewriter presets.
  */
 export const SlamCompositions: React.FC = () => (
   <>
@@ -65,6 +67,17 @@ export const SlamCompositions: React.FC = () => (
       fps={FPS}
       calculateMetadata={calculateMetadata}
       defaultProps={{ text: "NO\nEXCEPTIONS", accentLine: 1 }}
+    />
+
+    <Composition
+      id="Slam-MultiAccent"
+      component={Slam}
+      schema={slamSchema}
+      width={WIDTH}
+      height={HEIGHT}
+      fps={FPS}
+      calculateMetadata={calculateMetadata}
+      defaultProps={{ text: "TRAIN\nEAT\nSLEEP\nREPEAT", accentLines: [0, 3] }}
     />
 
     <Composition

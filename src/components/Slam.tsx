@@ -38,7 +38,13 @@ export const slamSchema = z.object({
     .nonnegative()
     .nullable()
     .optional()
-    .describe("Index (0-based) of the line rendered in amber. null = none."),
+    .describe(
+      "Deprecated — use accentLines. Index (0-based) of the line rendered in amber. If set and accentLines is empty, treated as [accentLine]. null = none.",
+    ),
+  accentLines: z
+    .array(z.number().int().nonnegative())
+    .optional()
+    .describe("Indices (0-based) of the lines rendered in amber. Empty = none."),
   size: z.enum(["sm", "md", "lg", "xl"]).optional().describe("Type scale, from tokens.shared.ts."),
   align: z.enum(["left", "center"]).optional(),
   holdFrames: z
@@ -64,6 +70,7 @@ export const DEFAULT_ARRIVAL: SlamArrival = "scale-down";
 export const DEFAULT_ARRIVAL_FRAMES = 8;
 export const DEFAULT_STAGGER = 4;
 export const DEFAULT_ACCENT_LINE: number | null = null;
+export const DEFAULT_ACCENT_LINES: number[] = [];
 export const DEFAULT_SIZE: SlamSize = "lg";
 export const DEFAULT_ALIGN: SlamAlign = "left";
 export const DEFAULT_HOLD_FRAMES = 60;
@@ -138,6 +145,7 @@ export const Slam: React.FC<SlamProps> = ({
   arrivalFrames = DEFAULT_ARRIVAL_FRAMES,
   stagger = DEFAULT_STAGGER,
   accentLine = DEFAULT_ACCENT_LINE,
+  accentLines = DEFAULT_ACCENT_LINES,
   size = DEFAULT_SIZE,
   align = DEFAULT_ALIGN,
   holdFrames = DEFAULT_HOLD_FRAMES,
@@ -147,6 +155,12 @@ export const Slam: React.FC<SlamProps> = ({
   const { width, height } = useVideoConfig();
 
   const lines = text.split("\n");
+
+  // accentLine is deprecated in favour of accentLines: only consulted
+  // when accentLines is empty (its default), so a caller who sets
+  // accentLines explicitly always wins, and existing presets that only
+  // ever set accentLine keep working unchanged.
+  const resolvedAccentLines = accentLines.length > 0 ? accentLines : accentLine != null ? [accentLine] : [];
 
   const scaleFactor = height / tokens.REFERENCE_HEIGHT_PX;
   const fontSizePx = SIZE_TOKENS_PX[size] * scaleFactor;
@@ -209,7 +223,7 @@ export const Slam: React.FC<SlamProps> = ({
                 fontSize: fontSizePx,
                 textTransform: tokens.TEXT_TRANSFORM_LABEL,
                 letterSpacing: `${tokens.LETTER_SPACING_WIDE_EM}em`,
-                color: i === accentLine ? tokens.COLOR_AMBER_GAP : tokens.COLOR_WHITE,
+                color: resolvedAccentLines.includes(i) ? tokens.COLOR_AMBER_GAP : tokens.COLOR_WHITE,
               }}
             >
               {lineUpper}
