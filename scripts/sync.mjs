@@ -88,16 +88,8 @@ function build(csvText) {
   const logged = calendar.filter((c) => c.logged).length;
   const required = Math.ceil(scheduled * THRESHOLD);
 
-  // best working set per lift (extras included — a PB is a PB)
-  const lifts = {};
-  for (const k of Object.keys(TARGETS)) {
-    const mine = sets.filter((s) => s.lift === k);
-    const best = mine.length ? Math.max(...mine.map((s) => s.e1rm)) : 0;
-    lifts[k] = { current: round1(best), target: TARGETS[k], gap: round1(TARGETS[k] - best) };
-  }
-  const currentTotal = round1(Object.values(lifts).reduce((a, l) => a + l.current, 0));
-
-  // top working set per lift per session date
+  // top working set per lift per session date — computed before `lifts`
+  // below, which needs series[k][0] for each lift's start value.
   const series = {};
   for (const k of Object.keys(TARGETS)) {
     const byDate = {};
@@ -105,6 +97,25 @@ function build(csvText) {
         .forEach((s) => { byDate[s.date] = Math.max(byDate[s.date] || 0, s.e1rm); });
     series[k] = Object.keys(byDate).sort().map((date) => ({ date, value: byDate[date] }));
   }
+
+  // best working set per lift (extras included — a PB is a PB), plus
+  // where the block began for that lift (its first logged session, or 0
+  // if never logged) and what's been gained since.
+  const lifts = {};
+  for (const k of Object.keys(TARGETS)) {
+    const mine = sets.filter((s) => s.lift === k);
+    const best = mine.length ? Math.max(...mine.map((s) => s.e1rm)) : 0;
+    const start = series[k].length ? series[k][0].value : 0;
+    lifts[k] = {
+      current: round1(best),
+      target: TARGETS[k],
+      gap: round1(TARGETS[k] - best),
+      start,
+      gained: round1(best - start),
+    };
+  }
+  const currentTotal = round1(Object.values(lifts).reduce((a, l) => a + l.current, 0));
+  const startTotal = round1(Object.values(lifts).reduce((a, l) => a + l.start, 0));
 
   // running-best cumulative total
   const dates = [...new Set(sets.filter((s) => s.date).map((s) => s.date))].sort();
@@ -130,7 +141,13 @@ function build(csvText) {
       rate: scheduled ? Math.round((logged / scheduled) * 100) : 0,
     },
     lifts,
-    total: { current: currentTotal, target: GOAL_TOTAL, gap: round1(GOAL_TOTAL - currentTotal) },
+    total: {
+      current: currentTotal,
+      target: GOAL_TOTAL,
+      gap: round1(GOAL_TOTAL - currentTotal),
+      start: startTotal,
+      gained: round1(currentTotal - startTotal),
+    },
     series,
     cumulative,
     calendar,

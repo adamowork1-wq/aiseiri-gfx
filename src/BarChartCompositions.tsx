@@ -33,15 +33,15 @@ const DURATION_IN_FRAMES =
 // Shape of the `lifts` object in public/data.json (see scripts/sync.mjs).
 type LiftsJson = Record<
   "squat" | "bench" | "clean",
-  { current: number; target: number; gap: number }
+  { current: number; target: number; gap: number; start: number; gained: number }
 >;
 
-// BarChart's own data shape is {from, to} per lift — current/target from
-// the synced ledger map straight onto that.
+// BarChart's own data shape is {start, from, to} per lift — start/
+// current/target from the synced ledger map straight onto that.
 const toLiftsData = (lifts: LiftsJson): LiftsData => ({
-  bench: { from: lifts.bench.current, to: lifts.bench.target },
-  squat: { from: lifts.squat.current, to: lifts.squat.target },
-  clean: { from: lifts.clean.current, to: lifts.clean.target },
+  bench: { start: lifts.bench.start, from: lifts.bench.current, to: lifts.bench.target },
+  squat: { start: lifts.squat.start, from: lifts.squat.current, to: lifts.squat.target },
+  clean: { start: lifts.clean.start, from: lifts.clean.current, to: lifts.clean.target },
 });
 
 type Props = {
@@ -54,9 +54,9 @@ type Props = {
 // alike). Needed because CalculateMetadataFunction returns the same props
 // shape it receives, so `data` must exist on defaultProps too.
 const EMPTY_LIFTS: LiftsData = {
-  bench: { from: 0, to: 0 },
-  squat: { from: 0, to: 0 },
-  clean: { from: 0, to: 0 },
+  bench: { start: 0, from: 0, to: 0 },
+  squat: { start: 0, from: 0, to: 0 },
+  clean: { start: 0, from: 0, to: 0 },
 };
 
 const calculateMetadata: CalculateMetadataFunction<Props> = async ({

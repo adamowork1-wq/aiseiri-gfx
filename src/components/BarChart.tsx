@@ -15,7 +15,7 @@ loadFont("normal", { weights: ["300", "500"] });
 // same handful of fields, so any one of them is a valid stand-in for typing.
 type TokenSet = typeof TokensB;
 
-export type LiftRange = { from: number; to: number };
+export type LiftRange = { start: number; from: number; to: number };
 export type LiftsData = Record<"bench" | "squat" | "clean", LiftRange>;
 
 type Props = {
@@ -24,6 +24,11 @@ type Props = {
   width: number;
   height: number;
   variantLabel: string;
+  /** Split the achieved (0→current) segment at `start` — dim 0→start,
+   * solid start→current, plus a hairline tick at the boundary. false
+   * restores the original two-segment bar (achieved white, gap amber).
+   * Default true. */
+  showStart?: boolean;
 };
 
 const CATEGORIES: Array<{ key: keyof LiftsData; label: string }> = [
@@ -40,14 +45,21 @@ const white = (opacity: number) => `rgba(255, 255, 255, ${opacity})`;
 /**
  * Vertical bar chart: one bar per lift, y-axis in kg, x-axis category
  * labels. Axes and labels are static (present from frame 0). Each bar is
- * two stacked segments, revealed in two beats:
+ * revealed in two beats:
  *
- *   Beat 1 (all bars together, frame 0): the white segment grows from the
- *   baseline up to the current value ("from").
+ *   Beat 1 (all bars together, frame 0): the achieved segment grows from
+ *   the baseline up to the current value ("from"). When showStart is on
+ *   (the default) this same growing extent is split at the fixed
+ *   `start` boundary into two — dim 0→start, solid start→current — plus
+ *   a hairline tick marking that boundary; the split animates in with
+ *   the bar rather than appearing separately, since both pieces derive
+ *   from the one growing top edge. showStart: false renders it as the
+ *   original single white segment.
  *
  *   Beat 2 (staggered bench → squat → clean, after a short pause): the
  *   amber segment — the gap between current and target — grows from the
- *   top of the white segment up to the target value ("to").
+ *   top of the achieved segment up to the target value ("to"). Untouched
+ *   by showStart.
  *
  * Then the resolved state holds. All timing comes from
  * tokens.shared.ts (DURATION_ENTER_FRAMES, PAUSE_BETWEEN_BEATS_FRAMES,
@@ -61,6 +73,7 @@ export const BarChart: React.FC<Props> = ({
   width,
   height,
   variantLabel,
+  showStart = true,
 }) => {
   const frame = useCurrentFrame();
   const ease = Easing.bezier(...tokens.EASE_STANDARD);
@@ -245,11 +258,12 @@ export const BarChart: React.FC<Props> = ({
         {/* Bars — white (current value, beat 1) + amber (gap to target,
             beat 2, staggered per bar). Value/category labels are static. */}
         {CATEGORIES.map(({ key, label }, i) => {
-          const { from, to } = data[key];
+          const { start, from, to } = data[key];
           const slotX = plotLeft + i * slotWidth;
           const barX = slotX + (slotWidth - barWidth) / 2;
           const barTop = scaleY(to); // final resting position, for the label
-          const fromY = scaleY(from); // fixed boundary between the two segments
+          const fromY = scaleY(from); // fixed boundary between achieved and gap
+          const startY = scaleY(start); // fixed boundary between dim and solid, within achieved
 
           const beat2Start =
             tokens.DURATION_ENTER_FRAMES +
@@ -259,6 +273,20 @@ export const BarChart: React.FC<Props> = ({
           // Beat 1 — grows up from the baseline to the current value.
           const whiteTop = animate(0, tokens.DURATION_ENTER_FRAMES, plotBottom, fromY);
           const whiteHeight = plotBottom - whiteTop;
+
+          // Split that same growing extent at the fixed `start` boundary.
+          // Plain clamps against the one live whiteTop value above, not
+          // separate frame math: while whiteTop is still below start
+          // (larger y — hasn't grown that far yet), the dim rect is
+          // simply [whiteTop, plotBottom] and the solid rect is zero
+          // height; once whiteTop passes start, dim locks to its full
+          // [startY, plotBottom] extent and solid takes over the rest.
+          // This is what makes the split animate in with the bar instead
+          // of appearing separately.
+          const dimTop = Math.max(whiteTop, startY);
+          const dimHeight = Math.max(0, plotBottom - dimTop);
+          const solidBottom = Math.min(plotBottom, startY);
+          const solidHeight = Math.max(0, solidBottom - whiteTop);
 
           // Beat 2 — grows up from the fixed from/to boundary to the
           // target. Anchored to the fixed `fromY`, not the live `whiteTop`:
@@ -294,13 +322,47 @@ export const BarChart: React.FC<Props> = ({
 
           return (
             <g key={key}>
-              <rect
-                x={barX}
-                y={whiteTop}
-                width={barWidth}
-                height={whiteHeight}
-                fill={white(tokens.OPACITY_BOLD)}
-              />
+              {showStart ? (
+                <>
+                  {/* 0 → start — dim, low opacity. Where the block began. */}
+                  <rect
+                    x={barX}
+                    y={dimTop}
+                    width={barWidth}
+                    height={dimHeight}
+                    fill={white(tokens.OPACITY_HAIRLINE)}
+                  />
+                  {/* start → current — solid, full opacity. Progress made. */}
+                  <rect
+                    x={barX}
+                    y={whiteTop}
+                    width={barWidth}
+                    height={solidHeight}
+                    fill={white(tokens.OPACITY_BOLD)}
+                  />
+                  {/* Hairline tick at the start boundary — legible even
+                      when progress is small, since it's a fixed marker,
+                      not something that only shows once the bar reaches
+                      it. Same hairline vocabulary as the y-axis ticks
+                      above. */}
+                  <line
+                    x1={barX}
+                    x2={barX + barWidth}
+                    y1={startY}
+                    y2={startY}
+                    stroke={white(tokens.OPACITY_HAIRLINE)}
+                    strokeWidth={tokens.STROKE_HAIRLINE_PX}
+                  />
+                </>
+              ) : (
+                <rect
+                  x={barX}
+                  y={whiteTop}
+                  width={barWidth}
+                  height={whiteHeight}
+                  fill={white(tokens.OPACITY_BOLD)}
+                />
+              )}
 
               {/* Current-value label, black, centred inside the white
                   segment's final resting position — same static-label
