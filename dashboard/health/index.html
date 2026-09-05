@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HEALTH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@300&family=IBM+Plex+Mono:wght@200;300&display=swap" rel="stylesheet">
+<style>
+:root{--gap:#FF7A18;--ghost:rgba(255,255,255,.12);--faint:rgba(255,255,255,.06);
+  --quiet:rgba(255,255,255,.38);--mid:rgba(255,255,255,.60)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#000;color:#fff}
+body{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-weight:200;font-size:12px;
+  line-height:1.7;-webkit-font-smoothing:antialiased;padding-bottom:14vh}
+.wrap{max-width:440px;margin:0 auto;padding:0 26px}
+.head{text-align:center;padding:9vh 0 7vh}
+.mark{font-family:"Grenze Gotisch",serif;font-weight:300;font-size:34px;line-height:1}
+.stamp{margin-top:13px;font-size:8px;letter-spacing:.36em;color:var(--quiet);text-transform:uppercase}
+section{padding:6vh 0 0}
+.lab{font-size:8px;letter-spacing:.36em;text-transform:uppercase;color:rgba(255,255,255,.26);margin-bottom:26px}
+.lab .i{color:rgba(255,255,255,.14);margin-right:13px}
+svg{display:block;width:100%;overflow:visible}
+.cap{margin-top:24px;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--quiet);line-height:2.1}
+.cap b{color:#fff;font-weight:300}.cap .a{color:var(--gap)}
+.row{display:flex;justify-content:space-between;gap:14px;color:var(--mid)}
+.row .v{color:#fff;white-space:nowrap}
+.big{font-size:15px;letter-spacing:.05em;line-height:1.6}
+.cue{color:var(--mid);margin-top:9px;padding-left:12px;border-left:.5px solid var(--ghost);font-size:11px}
+.note{color:var(--quiet);margin-top:10px}
+.num{font-size:44px;line-height:1;letter-spacing:.02em}
+.sub{margin-top:12px;font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--quiet)}
+.hair{fill:none;stroke:#fff;stroke-width:.7}
+.gh{fill:none;stroke:var(--ghost);stroke-width:.7}
+.ft{fill:none;stroke:var(--faint);stroke-width:.7}
+.am{fill:none;stroke:var(--gap);stroke-width:.7}
+text{font-family:"IBM Plex Mono",monospace;font-weight:200}
+.n{fill:#fff;font-size:9px;letter-spacing:.05em}
+.nq{fill:var(--quiet);font-size:8px;letter-spacing:.18em}
+.na{fill:var(--gap);font-size:9px;letter-spacing:.05em}
+#err{padding:6vh 0;color:var(--quiet);line-height:2}
+#err b{color:#fff;font-weight:300}
+#pull{position:fixed;top:0;left:0;right:0;height:0;overflow:hidden;
+  display:flex;align-items:flex-end;justify-content:center;pointer-events:none;z-index:20}
+#pull .t{font-size:8px;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--quiet);padding-bottom:8px;white-space:nowrap}
+#sync{text-align:center;margin-top:7vh;font-size:8px;letter-spacing:.3em;
+  text-transform:uppercase;color:rgba(255,255,255,.30);cursor:pointer;
+  padding:14px;user-select:none;-webkit-user-select:none}
+#sync b{color:var(--quiet);font-weight:200}
+#sync.busy{color:rgba(255,255,255,.55)}
+.foot{text-align:center;padding-top:9vh;font-size:8px;letter-spacing:.3em;
+  text-transform:uppercase;color:rgba(255,255,255,.16);line-height:2.2}
+</style>
+</head>
+<body>
+<div id="pull"><span class="t"></span></div>
+<div class="wrap">
+  <div class="head"><div class="mark">Aiséirí</div>
+    <div class="stamp">Health — Recovery Tier 1</div></div>
+  <div id="err" style="display:none"></div>
+  <div id="app"></div>
+  <div id="sync"></div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+const CSV="https://docs.google.com/spreadsheets/d/e/2PACX-1vTYqmiTVaLQdo85o6MyAlYl2d03UUrJ5FvD7ppfSfT7tE1g4bRvEbqxJIz40MxU1PnbZHo94hYe_aZ-/pub?gid=290481563&single=true&output=csv";
+const SLEEP_TARGET=7.25, WATER_TARGET=3, ADH_TARGET=.9;
+const NS="http://www.w3.org/2000/svg";
+const el=(t,a={})=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n};
+
+function parseCSV(s){
+  const rows=[];let f="",r=[],q=false;
+  for(let i=0;i<s.length;i++){const c=s[i];
+    if(q){ if(c==='"'){ if(s[i+1]==='"'){f+='"';i++} else q=false } else f+=c }
+    else if(c==='"')q=true;
+    else if(c===','){r.push(f);f=""}
+    else if(c==='\n'){r.push(f);rows.push(r);r=[];f=""}
+    else if(c!=='\r')f+=c}
+  if(f||r.length){r.push(f);rows.push(r)}
+  return rows;
+}
+
+/* junk title rows above the header — find the row whose first cell is
+   exactly "key", then column A/B below it is the key/value pair */
+function parseHealth(rows){
+  const i=rows.findIndex(r=>(r[0]||"").trim()==="key");
+  const o={};
+  if(i<0) return o;
+  rows.slice(i+1).forEach(r=>{
+    const k=(r[0]||"").trim(); if(!k) return;
+    o[k]=(r[1]||"").trim();
+  });
+  ["pillar","tier"].forEach(k=>{if(o[k]) o[k]=o[k].replace(/^"|"$/g,"")});
+  return o;
+}
+
+function render(HD){
+  const app=document.getElementById("app");app.innerHTML="";
+  const sec=(lab,inner)=>{const d=document.createElement("section");
+    d.innerHTML=`<div class="lab"><span class="i">${lab[0]}</span>${lab[1]}</div>`+inner;
+    app.appendChild(d);return d};
+
+  /* a field on its own: empty string or unparsable is "not logged yet" */
+  const isEmpty=v=>v===undefined||v===""||isNaN(parseFloat(v));
+  /* rate/period fields (adherence, component %s, daily means) are meaningless
+     before any day has been logged — gate them on days_logged too */
+  const dl=HD.days_logged, daysLogged=parseFloat(dl);
+  const noPeriod=isEmpty(dl)||daysLogged===0;
+  const fmtPct=(v,gated)=>(gated&&noPeriod)||isEmpty(v)?"—":Math.round(parseFloat(v)*100)+"%";
+  const fmtNum=v=>isEmpty(v)?"—":parseFloat(v);
+
+  /* 01 ADHERENCE */
+  const adhRaw=HD.adherence_7d, adh=parseFloat(adhRaw), hasAdh=!noPeriod&&!isEmpty(adhRaw);
+  const d1=sec(["01","Adherence"],`<svg viewBox="0 0 300 40"></svg>
+    <div class="sub">All-time ${fmtPct(HD.adherence_all,true)}</div>`);
+  const s1=d1.querySelector("svg");
+  const l1=el("text",{x:0,y:9,class:"nq"});l1.textContent="7-DAY";s1.appendChild(l1);
+  if(hasAdh){
+    const xc=300*Math.min(1,Math.max(0,adh/ADH_TARGET));
+    s1.appendChild(el("line",{x1:0,y1:22,x2:xc,y2:22,class:"hair"}));
+    s1.appendChild(el("line",{x1:xc,y1:22,x2:300,y2:22,class:"am"}));
+    s1.appendChild(el("line",{x1:xc,y1:17,x2:xc,y2:27,class:"hair"}));
+    s1.appendChild(el("line",{x1:300,y1:18.5,x2:300,y2:25.5,class:"am"}));
+    const a1=el("text",{x:0,y:39,class:"n"});a1.textContent=Math.round(adh*100)+"%";s1.appendChild(a1);
+  }else{
+    const a1=el("text",{x:0,y:39,class:"n"});a1.textContent="—";s1.appendChild(a1);
+  }
+  const b1=el("text",{x:300,y:39,class:"na","text-anchor":"end"});b1.textContent="90%";s1.appendChild(b1);
+
+  /* 02 STREAK */
+  sec(["02","Streak"],
+    `<div class="num">${fmtNum(HD.streak_current)}</div>
+     <div class="sub">Best ${fmtNum(HD.streak_best)}</div>`);
+
+  /* 03 COMPONENTS */
+  sec(["03","Components"],
+    `<div class="row"><span>Sleep</span><span class="v">${fmtPct(HD.sleep_pct,true)}</span></div>
+     <div class="row"><span>Water</span><span class="v">${fmtPct(HD.water_pct,true)}</span></div>
+     <div class="row"><span>Skin · AM</span><span class="v">${fmtPct(HD.skin_am_pct,true)}</span></div>
+     <div class="row"><span>Skin · PM</span><span class="v">${fmtPct(HD.skin_pm_pct,true)}</span></div>`);
+
+  /* 04 MEANS */
+  const d4=sec(["04","Means"],`<svg viewBox="0 0 300 118"></svg>`);
+  const s4=d4.querySelector("svg");
+  [["SLEEP",HD.sleep_mean,SLEEP_TARGET,"H"],["WATER",HD.water_mean,WATER_TARGET,"L"]]
+    .forEach(([lab,raw,tgt,unit],i)=>{
+      const y=30+i*54, v=parseFloat(raw), has=!noPeriod&&!isEmpty(raw), xc=has?300*Math.min(1,v/tgt):0;
+      const t1=el("text",{x:0,y:y-13,class:"nq"});t1.textContent=lab;s4.appendChild(t1);
+      s4.appendChild(el("line",{x1:0,y1:y,x2:xc,y2:y,class:"hair"}));
+      s4.appendChild(el("line",{x1:xc,y1:y,x2:300,y2:y,class:"am"}));
+      s4.appendChild(el("line",{x1:xc,y1:y-5,x2:xc,y2:y+5,class:"hair"}));
+      s4.appendChild(el("line",{x1:300,y1:y-3.5,x2:300,y2:y+3.5,class:"am"}));
+      const a=el("text",{x:0,y:y+17,class:"n"});a.textContent=has?v.toFixed(2)+" "+unit:"—";s4.appendChild(a);
+      const b=el("text",{x:300,y:y+17,class:"na","text-anchor":"end"});b.textContent=tgt+" "+unit;s4.appendChild(b);
+    });
+
+  /* 05 LOGGED */
+  sec(["05","Logged"],
+    `<div class="num">${fmtNum(HD.days_logged)}</div>
+     <div class="sub">${fmtNum(HD.water_4L_days)} days at 4L</div>`);
+
+  document.getElementById("foot").innerHTML="Live from the ledger";
+}
+
+/* ── sync ─────────────────────────────────────────────────── */
+let lastSync=null, busy=false;
+const syncEl=()=>document.getElementById("sync");
+
+function stamp(){
+  if(!lastSync){syncEl().innerHTML="";return}
+  const m=Math.floor((Date.now()-lastSync)/60000);
+  const ago = m<1?"just now" : m===1?"1 min ago" : m+" min ago";
+  syncEl().innerHTML=`Synced <b>${ago}</b> · tap to refresh`;
+}
+
+function load(){
+  if(busy)return; busy=true;
+  syncEl().classList.add("busy");
+  if(lastSync) syncEl().innerHTML="Syncing…";
+  /* cache-bust the browser; Google still caches its side for ~5 min */
+  return fetch(CSV+"&_="+Date.now(),{cache:"no-store"})
+    .then(r=>{if(!r.ok)throw new Error(r.status);return r.text()})
+    .then(t=>{
+      document.getElementById("err").style.display="none";
+      render(parseHealth(parseCSV(t)));
+      lastSync=Date.now(); stamp();
+    })
+    .catch(e=>{
+      const el=document.getElementById("err");
+      el.style.display="block";
+      el.innerHTML=`<b>Could not reach the health ledger.</b><br>${e.message}<br><br>
+        If this says "Failed to fetch", the browser blocked the request.
+        Opening the file from disk does that — it needs to be served over http.`;
+      syncEl().innerHTML="Sync failed · tap to retry";
+    })
+    .finally(()=>{busy=false;syncEl().classList.remove("busy")});
+}
+
+document.addEventListener("click",e=>{if(e.target.closest("#sync"))load()});
+setInterval(stamp,30000);
+
+/* reopening the home-screen app resumes a suspended page — refetch */
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden && lastSync && Date.now()-lastSync>60000) load();
+});
+
+/* ── pull to refresh ──────────────────────────────────────── */
+(()=>{
+  const bar=document.getElementById("pull"), txt=bar.querySelector(".t");
+  const MAX=90, TRIP=64;
+  let y0=null, dy=0;
+  addEventListener("touchstart",e=>{
+    y0 = (window.scrollY<=0 && e.touches.length===1) ? e.touches[0].clientY : null; dy=0;
+  },{passive:true});
+  addEventListener("touchmove",e=>{
+    if(y0===null)return;
+    dy=Math.max(0,Math.min(MAX,(e.touches[0].clientY-y0)*0.55));
+    bar.style.height=dy+"px";
+    txt.textContent = dy>=TRIP ? "Release to refresh" : "Pull to refresh";
+  },{passive:true});
+  addEventListener("touchend",()=>{
+    if(y0!==null && dy>=TRIP) load();
+    bar.style.height="0px"; y0=null; dy=0;
+  },{passive:true});
+})();
+
+load();
+</script>
+</body>
+</html>
